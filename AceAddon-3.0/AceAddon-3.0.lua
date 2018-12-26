@@ -110,18 +110,21 @@ local function safecall(unsafeFunc, ...)
 	if type(unsafeFunc) ~= "function" then  return  end
 	
 	-- Without parameters call the function directly
-	if  0 == select('#',...)  then
+	local nParams = select('#',...)
+	if  0 == nParams  then
 		return xpcall(unsafeFunc, geterrorhandler())
 	end
 
 	-- Pack the parameters to pass to the actual function
-	local params =  { ... }
+	local tParams = { ... }
 	-- Unpack the parameters in the thunk
-	local function safecallThunk()  unsafeFunc( unpack(params) )  end
+	local function safecallThunk()  unsafeFunc( unpack(tParams,1,nParams) )  end
 	-- Do the call through the thunk
 	return xpcall(safecallThunk, geterrorhandler())
 end
 
+-- Export to global namespace
+_G.safecall = safecall
 
 -- local functions that will be implemented further down
 local Enable, Disable, EnableModule, DisableModule, Embed, NewModule, GetModule, GetName, SetDefaultModuleState, SetDefaultModuleLibraries, SetEnabledState, SetDefaultModulePrototype
