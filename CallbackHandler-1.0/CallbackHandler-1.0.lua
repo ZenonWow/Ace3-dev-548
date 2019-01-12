@@ -1,26 +1,108 @@
 --[[ $Id: CallbackHandler-1.0.lua 14 2010-08-09 00:43:38Z mikk $ ]]
-local MAJOR, MINOR = "CallbackHandler-1.0", 6
+local MAJOR, MINOR = "CallbackHandler-1.0", 6.1
 local CallbackHandler = LibStub:NewLibrary(MAJOR, MINOR)
-
 if not CallbackHandler then return end -- No upgrade needed
 
-local meta = {__index = function(tbl, key) tbl[key] = {} return tbl[key] end}
-
 -- Lua APIs
-local tconcat = table.concat
+local _G, tconcat = _G, table.concat
 local assert, error, loadstring = assert, error, loadstring
 local setmetatable, rawset, rawget = setmetatable, rawset, rawget
 local next, select, pairs, type, tostring = next, select, pairs, type, tostring
+local xpcall = xpcall
 
 -- Global vars/functions that we don't upvalue since they might get hooked, or upgraded
 -- List them here for Mikk's FindGlobals script
 -- GLOBALS: geterrorhandler
 
-local xpcall = xpcall
 
-local function errorhandler(err)
-	return geterrorhandler()(err)
+
+-- Export to global: metatable that auto-creates empty inner tables when first referenced.
+local AutoInnerTablesMeta = {__index = function(self, key) self[key] = {} return self[key] end}
+CallbackHandler.AutoInnerTablesMeta = AutoInnerTablesMeta
+_G.AutoInnerTablesMeta = AutoInnerTablesMeta
+
+
+
+--[=[
+---- safecall(unsafeFunc, arg1, arg2, ...) == pcall(unsafeFunc, arg1, arg2, ...) with errorhandler, using xpcall
+--]=]
+
+local function dispatcherErrorHandler(err)  return _G.geterrorhandler()(err)  end
+
+----[=[
+local function CreateDispatcher(argCount)
+	local code = [===[
+		local xpcall, eh = ...
+		local method, ARGS
+		local function call() return method(ARGS) end
+	
+		local function dispatch(func, ...)
+			 method = func
+			 if not method then return end
+			 ARGS = ...
+			 return xpcall(call, eh)
+		end
+	
+		return dispatch
+	]===]
+	
+	local ARGS = {}
+	for i = 1, argCount do ARGS[i] = "a"..i end
+	code = code:gsub("ARGS", tconcat(ARGS, ","))
+	return assert(loadstring(code, "safecall Dispatcher["..argCount.."]"))(xpcall, dispatcherErrorHandler)
 end
+
+local Dispatchers = setmetatable({}, {__index=function(self, argCount)
+	local dispatcher = CreateDispatcher(argCount)
+	rawset(self, argCount, dispatcher)
+	return dispatcher
+end})
+Dispatchers[0] = function(func)
+	return xpcall(func, dispatcherErrorHandler)
+end
+
+local function safecall(func, ...)
+	-- we check to see if the func is passed is actually a function here and don't error when it isn't
+	-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
+	-- present execution should continue without hinderance
+	if type(func) == "function" then
+		return Dispatchers[select('#', ...)](func, ...)
+	end
+end
+--]=]
+
+
+--[=[ Alternative implementation with any number of arguments packed in an array and unpacked. Probably slower.
+local function safecall(unsafeFunc, ...)
+	-- we check to see if the func is passed is actually a function here and don't error when it isn't
+	-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
+	-- present execution should continue without hinderance
+	if type(unsafeFunc) ~= "function" then  return  end
+	
+	-- Without parameters call the function directly
+	local nParams = select('#',...)
+	if  0 == nParams  then
+		-- return xpcall(unsafeFunc, _G.geterrorhandler())
+		return xpcall(unsafeFunc, safecallErrorHandler)
+	end
+
+	-- Pack the parameters to pass to the actual function
+	local tParams = { ... }
+	-- Unpack the parameters in the thunk
+	local function safecallThunk()  return unsafeFunc( unpack(tParams,1,nParams) )  end
+	-- Do the call through the thunk
+	-- return xpcall(safecallThunk, _G.geterrorhandler())
+	return xpcall(safecallThunk, safecallErrorHandler)
+end
+--]=]
+
+
+-- Export to global namespace
+CallbackHandler.safecall = safecall
+_G.safecall = safecall
+
+
+
 
 local function CreateDispatcher(argCount)
 	local code = [[
@@ -30,25 +112,27 @@ local function CreateDispatcher(argCount)
 	local function call() method(ARGS) end
 
 	local function dispatch(handlers, ...)
-		local index
+		local handlersRan, index = 0
 		index, method = next(handlers)
 		if not method then return end
 		local OLD_ARGS = ARGS
 		ARGS = ...
 		repeat
-			xpcall(call, eh)
+			local ran = xpcall(call, eh)
+			if ran then handlersRan = handlersRan + 1 end
 			index, method = next(handlers, index)
 		until not method
 		ARGS = OLD_ARGS
+		return handlersRan
 	end
 
 	return dispatch
 	]]
 
 	local ARGS, OLD_ARGS = {}, {}
-	for i = 1, argCount do ARGS[i], OLD_ARGS[i] = "arg"..i, "old_arg"..i end
-	code = code:gsub("OLD_ARGS", tconcat(OLD_ARGS, ", ")):gsub("ARGS", tconcat(ARGS, ", "))
-	return assert(loadstring(code, "safecall Dispatcher["..argCount.."]"))(next, xpcall, errorhandler)
+	for i = 1, argCount do ARGS[i], OLD_ARGS[i] = "a"..i, "o"..i end
+	code = code:gsub("OLD_ARGS", tconcat(OLD_ARGS, ",")):gsub("ARGS", tconcat(ARGS, ","))
+	return assert(loadstring(code, "CallbackHandler Dispatcher["..argCount.."]"))(next, xpcall, dispatcherErrorHandler)
 end
 
 local Dispatchers = setmetatable({}, {__index=function(self, argCount)
@@ -80,16 +164,18 @@ function CallbackHandler:New(target, RegisterName, UnregisterName, UnregisterAll
 
 
 	-- Create the registry object
-	local events = setmetatable({}, meta)
+	local events = setmetatable({}, AutoInnerTablesMeta)
 	local registry = { recurse=0, events=events }
 
 	-- registry:Fire() - fires the given event/message into the registry
 	function registry:Fire(eventname, ...)
-		if not rawget(events, eventname) or not next(events[eventname]) then return end
+		local handlers = rawget(events, eventname)
+		if not handlers or not next(handlers) then return nil end
+
 		local oldrecurse = registry.recurse
 		registry.recurse = oldrecurse + 1
 
-		Dispatchers[select('#', ...) + 1](events[eventname], eventname, ...)
+		local handlersRan = Dispatchers[select('#', ...) + 1](handlers, eventname, ...)
 
 		registry.recurse = oldrecurse
 
@@ -108,6 +194,9 @@ function CallbackHandler:New(target, RegisterName, UnregisterName, UnregisterAll
 			end
 			registry.insertQueue = nil
 		end
+		
+		-- Return number of successful handlers.
+		return handlersRan
 	end
 
 	-- Registration of a callback, handles:
@@ -172,7 +261,7 @@ function CallbackHandler:New(target, RegisterName, UnregisterName, UnregisterAll
 		else
 			-- we're currently processing a callback in this registry, so delay the registration of this new entry!
 			-- yes, we're a bit wasteful on garbage, but this is a fringe case, so we're picking low implementation overhead over garbage efficiency
-			registry.insertQueue = registry.insertQueue or setmetatable({},meta)
+			registry.insertQueue = registry.insertQueue or setmetatable({}, AutoInnerTablesMeta)
 			registry.insertQueue[eventname][self] = regfunc
 		end
 	end

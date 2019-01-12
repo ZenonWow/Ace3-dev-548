@@ -2,7 +2,7 @@
 -- It'll provide you with a set of callback functions that allow you to simplify the loading
 -- process of your addon.\\
 -- Callbacks provided are:\\
--- * **OnInitialize**, which is called directly after the addon is fully loaded.
+-- * **OnInitialize**, which is called directly after the addon's SavedVariables are fully loaded: during ADDON_LOADED event.
 -- * **OnEnable** which gets called during the PLAYER_LOGIN event, when most of the data provided by the game is already present.
 -- * **OnDisable**, which is only called when your addon is manually being disabled.
 -- @usage
@@ -30,17 +30,14 @@
 -- @name AceAddon-3.0.lua
 -- @release $Id: AceAddon-3.0.lua 1084 2013-04-27 20:14:11Z nevcairiel $
 
-local MAJOR, MINOR = "AceAddon-3.0", 12
+local MAJOR, MINOR = "AceAddon-3.0", 12.1
 local AceAddon, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
-
 if not AceAddon then return end -- No Upgrade needed.
 
-AceAddon.frame = AceAddon.frame or CreateFrame("Frame", "AceAddon30Frame") -- Our very own frame
-AceAddon.addons = AceAddon.addons or {} -- addons in general
-AceAddon.statuses = AceAddon.statuses or {} -- statuses of addon.
-AceAddon.initializequeue = AceAddon.initializequeue or {} -- addons that are new and not initialized
-AceAddon.enablequeue = AceAddon.enablequeue or {} -- addons that are initialized and waiting to be enabled
-AceAddon.embeds = AceAddon.embeds or setmetatable({}, {__index = function(tbl, key) tbl[key] = {} return tbl[key] end }) -- contains a list of libraries embedded in an addon
+local _G, LibStub = _G, LibStub
+-- Export to global namespace for easy access
+_G.AceAddon = _G.AceAddon or AceAddon
+-- Exports later:  safecall(unsafeFunc, arg1, arg2, ...) = pcall(unsafeFunc, arg1, arg2, ...) with errorhandler
 
 -- Lua APIs
 local tinsert, tconcat, tremove = table.insert, table.concat, table.remove
@@ -48,22 +45,40 @@ local fmt, tostring = string.format, tostring
 local select, pairs, next, type, unpack = select, pairs, next, type, unpack
 local loadstring, assert, error = loadstring, assert, error
 local setmetatable, getmetatable, rawset, rawget = setmetatable, getmetatable, rawset, rawget
+local xpcall = xpcall
+
+-- Import  CallbackHandler.safecall  and  CallbackHandler.AutoInnerTablesMeta
+local CallbackHandler = LibStub:GetLibrary("CallbackHandler-1.0")
+local safecall = CallbackHandler.safecall
+assert(safecall, MAJOR.." requires up-to-date CallbackHandler-1.0 with safecall() implemented)
+local AutoInnerTablesMeta =  CallbackHandler.AutoInnerTablesMeta  or  _G.AutoInnerTablesMeta
+-- local AutoInnerTablesMeta =  CallbackHandler.AutoInnerTablesMeta  or  _G.AutoInnerTablesMeta  or  {__index = function(self, key) self[key] = {} return self[key] end}
+-- Make sure it's exported to global
+-- _G.AutoInnerTablesMeta = _G.AutoInnerTablesMeta or AutoInnerTablesMeta
 
 -- Global vars/functions that we don't upvalue since they might get hooked, or upgraded
 -- List them here for Mikk's FindGlobals script
 -- GLOBALS: LibStub, IsLoggedIn, geterrorhandler
 
---[[
-	 xpcall safecall implementation
-]]
-local xpcall = xpcall
+AceAddon.frame = AceAddon.frame or CreateFrame("Frame", "AceAddon30Frame") -- Our very own frame
+AceAddon.addons = AceAddon.addons or {} -- addons in general
+AceAddon.statuses = AceAddon.statuses or {} -- statuses of addon.
+AceAddon.initializequeue = AceAddon.initializequeue or {} -- addons that are new and not initialized
+AceAddon.enablequeue = AceAddon.enablequeue or {} -- addons that are initialized and waiting to be enabled
+AceAddon.embeds = setmetatable(AceAddon.embeds or {}, AutoInnerTablesMeta) -- contains a list of libraries embedded in an addon
 
---[==[
-local function errorhandler(err)
-	return geterrorhandler()(err)
+
+--[[
+--[=[
+---- safecall(unsafeFunc, arg1, arg2, ...) == pcall(unsafeFunc, arg1, arg2, ...) with errorhandler, using xpcall
+--]=]
+local function safecallErrorHandler(err)
+	return _G.geterrorhandler()(err)
 end
+
+----[=[
 local function CreateDispatcher(argCount)
-	local code = [[
+	local code = [===[
 		local xpcall, eh = ...
 		local method, ARGS
 		local function call() return method(ARGS) end
@@ -76,12 +91,12 @@ local function CreateDispatcher(argCount)
 		end
 	
 		return dispatch
-	]]
+	]===]
 	
 	local ARGS = {}
-	for i = 1, argCount do ARGS[i] = "arg"..i end
-	code = code:gsub("ARGS", tconcat(ARGS, ", "))
-	return assert(loadstring(code, "safecall Dispatcher["..argCount.."]"))(xpcall, errorhandler)
+	for i = 1, argCount do ARGS[i] = "a"..i end
+	code = code:gsub("ARGS", tconcat(ARGS, ","))
+	return assert(loadstring(code, "safecall Dispatcher["..argCount.."]"))(xpcall, safecallErrorHandler)
 end
 
 local Dispatchers = setmetatable({}, {__index=function(self, argCount)
@@ -90,7 +105,7 @@ local Dispatchers = setmetatable({}, {__index=function(self, argCount)
 	return dispatcher
 end})
 Dispatchers[0] = function(func)
-	return xpcall(func, errorhandler)
+	return xpcall(func, safecallErrorHandler)
 end
 
 local function safecall(func, ...)
@@ -101,8 +116,10 @@ local function safecall(func, ...)
 		return Dispatchers[select('#', ...)](func, ...)
 	end
 end
---]==]
+--]=]
 
+
+--[=[ Alternative implementation with any number of arguments packed in an array and unpacked. Probably slower.
 local function safecall(unsafeFunc, ...)
 	-- we check to see if the func is passed is actually a function here and don't error when it isn't
 	-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
@@ -112,19 +129,28 @@ local function safecall(unsafeFunc, ...)
 	-- Without parameters call the function directly
 	local nParams = select('#',...)
 	if  0 == nParams  then
-		return xpcall(unsafeFunc, geterrorhandler())
+		-- return xpcall(unsafeFunc, _G.geterrorhandler())
+		return xpcall(unsafeFunc, safecallErrorHandler)
 	end
 
 	-- Pack the parameters to pass to the actual function
 	local tParams = { ... }
 	-- Unpack the parameters in the thunk
-	local function safecallThunk()  unsafeFunc( unpack(tParams,1,nParams) )  end
+	local function safecallThunk()  return unsafeFunc( unpack(tParams,1,nParams) )  end
 	-- Do the call through the thunk
-	return xpcall(safecallThunk, geterrorhandler())
+	-- return xpcall(safecallThunk, _G.geterrorhandler())
+	return xpcall(safecallThunk, safecallErrorHandler)
 end
+--]=]
+
 
 -- Export to global namespace
+AceAddon.safecall = safecall
 _G.safecall = safecall
+--]]
+
+
+
 
 -- local functions that will be implemented further down
 local Enable, Disable, EnableModule, DisableModule, Embed, NewModule, GetModule, GetName, SetDefaultModuleState, SetDefaultModuleLibraries, SetEnabledState, SetDefaultModulePrototype
@@ -176,7 +202,10 @@ function AceAddon:NewAddon(objectorname, ...)
 	
 	object = object or {}
 	object.name = name
-
+	
+	local callerStack = _G.debugstack(2,1,0)
+	object.folderName = callerStack
+	
 	local addonmeta = {}
 	local oldmeta = getmetatable(object)
 	if oldmeta then
@@ -211,6 +240,11 @@ function AceAddon:GetAddon(name, silent)
 	end
 	return self.addons[name]
 end
+
+-- Global shorthand to access addons, similar to LibStub's. Examples:
+-- _G.AceAddon('Prat'), _G.AceAddon('Dominos'), etc.
+-- _G.AceAddon.Prat, _G.AceAddon.Dominos, etc.
+setmetatable(AceAddon, { __call = AceAddon.GetAddon, __index = AceAddon.addons })
 
 -- - Embed a list of libraries into the specified addon.
 -- This function will try to embed all of the listed libraries into the addon
@@ -657,19 +691,21 @@ function AceAddon:IterateEmbedsOnAddon(addon) return pairs(self.embeds[addon]) e
 function AceAddon:IterateModulesOfAddon(addon) return pairs(addon.modules) end
 
 -- Event Handling
-local function onEvent(this, event, arg1)
+local function onEvent(this, event, addonName)
 	-- 2011-08-17 nevcairiel - ignore the load event of Blizzard_DebugTools, so a potential startup error isn't swallowed up
-	if (event == "ADDON_LOADED"  and arg1 ~= "Blizzard_DebugTools") or event == "PLAYER_LOGIN" then
+	if (event == "ADDON_LOADED"  and addonName ~= "Blizzard_DebugTools") or event == "PLAYER_LOGIN" then
 		-- if a addon loads another addon, recursion could happen here, so we need to validate the table on every iteration
 		while(#AceAddon.initializequeue > 0) do
 			local addon = tremove(AceAddon.initializequeue, 1)
 			-- this might be an issue with recursion - TODO: validate
-			if event == "ADDON_LOADED" then addon.baseName = arg1 end
+			
+			-- addon.folderName == addon.baseName == addonName expected
+			if event == "ADDON_LOADED" then addon.baseName = addonName end
 			AceAddon:InitializeAddon(addon)
 			tinsert(AceAddon.enablequeue, addon)
 		end
 		
-		if IsLoggedIn() then
+		if _G.IsLoggedIn() then
 			while(#AceAddon.enablequeue > 0) do
 				local addon = tremove(AceAddon.enablequeue, 1)
 				AceAddon:EnableAddon(addon)

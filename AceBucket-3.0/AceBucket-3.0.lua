@@ -36,7 +36,10 @@
 -- @name AceBucket-3.0.lua
 -- @release $Id: AceBucket-3.0.lua 895 2009-12-06 16:28:55Z nevcairiel $
 
-local MAJOR, MINOR = "AceBucket-3.0", 3
+-- MINOR = 3.1 added  firstInterval  parameter to RegisterBucketEvent and RegisterBucketMessage. Defaults to 0.
+-- The first batch of events is sent after firstInterval (instantly by default, that is on the next OnUpdate).
+
+local MAJOR, MINOR = "AceBucket-3.0", 3.1
 local AceBucket, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 
 if not AceBucket then return end -- No Upgrade needed
@@ -46,6 +49,7 @@ AceBucket.embeds = AceBucket.embeds or {}
 
 -- the libraries will be lazyly bound later, to avoid errors due to loading order issues
 local AceEvent, AceTimer
+local CallbackHandler, safecall    -- Imported from CallbackHandler
 
 -- Lua APIs
 local tconcat = table.concat
@@ -57,19 +61,18 @@ local assert, loadstring, error = assert, loadstring, error
 -- List them here for Mikk's FindGlobals script
 -- GLOBALS: LibStub, geterrorhandler
 
-local bucketCache = setmetatable({}, {__mode='k'})
 
 --[[
-	 xpcall safecall implementation
-]]
-local xpcall = xpcall
-
-local function errorhandler(err)
-	return geterrorhandler()(err)
+--[=[
+---- safecall(unsafeFunc, arg1, arg2, ...) == pcall(unsafeFunc, arg1, arg2, ...) with errorhandler, using xpcall
+--]=]
+local function safecallErrorHandler(err)
+	return _G.geterrorhandler()(err)
 end
 
+----[=[
 local function CreateDispatcher(argCount)
-	local code = [[
+	local code = [===[
 		local xpcall, eh = ...
 		local method, ARGS
 		local function call() return method(ARGS) end
@@ -82,12 +85,12 @@ local function CreateDispatcher(argCount)
 		end
 	
 		return dispatch
-	]]
+	]===]
 	
 	local ARGS = {}
-	for i = 1, argCount do ARGS[i] = "arg"..i end
-	code = code:gsub("ARGS", tconcat(ARGS, ", "))
-	return assert(loadstring(code, "safecall Dispatcher["..argCount.."]"))(xpcall, errorhandler)
+	for i = 1, argCount do ARGS[i] = "a"..i end
+	code = code:gsub("ARGS", tconcat(ARGS, ","))
+	return assert(loadstring(code, "safecall Dispatcher["..argCount.."]"))(xpcall, safecallErrorHandler)
 end
 
 local Dispatchers = setmetatable({}, {__index=function(self, argCount)
@@ -96,21 +99,63 @@ local Dispatchers = setmetatable({}, {__index=function(self, argCount)
 	return dispatcher
 end})
 Dispatchers[0] = function(func)
-	return xpcall(func, errorhandler)
+	return xpcall(func, safecallErrorHandler)
 end
- 
+
 local function safecall(func, ...)
-	return Dispatchers[select('#', ...)](func, ...)
+	-- we check to see if the func is passed is actually a function here and don't error when it isn't
+	-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
+	-- present execution should continue without hinderance
+	if type(func) == "function" then
+		return Dispatchers[select('#', ...)](func, ...)
+	end
 end
+--]=]
+
+
+--[=[ Alternative implementation with any number of arguments packed in an array and unpacked. Probably slower.
+local function safecall(unsafeFunc, ...)
+	-- we check to see if the func is passed is actually a function here and don't error when it isn't
+	-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
+	-- present execution should continue without hinderance
+	if type(unsafeFunc) ~= "function" then  return  end
+	
+	-- Without parameters call the function directly
+	local nParams = select('#',...)
+	if  0 == nParams  then
+		-- return xpcall(unsafeFunc, _G.geterrorhandler())
+		return xpcall(unsafeFunc, safecallErrorHandler)
+	end
+
+	-- Pack the parameters to pass to the actual function
+	local tParams = { ... }
+	-- Unpack the parameters in the thunk
+	local function safecallThunk()  return unsafeFunc( unpack(tParams,1,nParams) )  end
+	-- Do the call through the thunk
+	-- return xpcall(safecallThunk, _G.geterrorhandler())
+	return xpcall(safecallThunk, safecallErrorHandler)
+end
+--]=]
+
+
+-- Export to global namespace
+AceAddon.safecall = safecall
+_G.safecall = safecall
+--]]
+
+
+
 
 -- FireBucket ( bucket )
 --
 -- send the bucket to the callback function and schedule the next FireBucket in interval seconds
 local function FireBucket(bucket)
+	bucket.timer = nil
 	local received = bucket.received
 	
 	-- we dont want to fire empty buckets
 	if next(received) then
+		bucket.lastTime = GetTime()
 		local callback = bucket.callback
 		if type(callback) == "string" then
 			safecall(bucket.object[callback], bucket.object, received)
@@ -118,14 +163,13 @@ local function FireBucket(bucket)
 			safecall(callback, received)
 		end
 		
-		for k in pairs(received) do
-			received[k] = nil
-		end
+		wipe(received)
 		
+		-- Outdated (one less timer now):
 		-- if the bucket was not empty, schedule another FireBucket in interval seconds
-		bucket.timer = AceTimer.ScheduleTimer(bucket, FireBucket, bucket.interval, bucket)
+		-- the bucket won't be fired until this timer runs out
+		-- bucket.timer = AceTimer.ScheduleTimer(bucket, FireBucket, bucket.interval, bucket)
 	else -- if it was empty, clear the timer and wait for the next event
-		bucket.timer = nil
 	end
 end
 
@@ -140,11 +184,22 @@ local function BucketHandler(self, event, arg1)
 	
 	self.received[arg1] = (self.received[arg1] or 0) + 1
 	
-	-- if we are not scheduled yet, start a timer on the interval for our bucket to be cleared
-	if not self.timer then
-		self.timer = AceTimer.ScheduleTimer(self, FireBucket, self.interval, self)
+	if  not self.timer  then
+		local sinceLast = GetTime() - (bucket.lastTime or 0)
+		local interval = self.interval - sinceLast
+		if  interval <= 0  then  interval = self.firstInterval  end
+		self.timer = AceTimer.ScheduleTimer(self, FireBucket, interval or 0, self)
+		
+		-- Outdated (one less timer now):
+		-- If the next send is not scheduled then the last FireBucket() happened more then self.interval seconds ago.
+		-- Therefore the events can be sent instantly. Wait only the minimum time (firstInterval) before sending.
+		-- Default is zero which hopefully sends on the next OnUpdate cycle, collecting all events sent in this framedraw.
+		-- self.timer = AceTimer.ScheduleTimer(self, FireBucket, self.firstInterval or 0, self)
 	end
 end
+
+
+local bucketCache = setmetatable({}, {__mode='k'})
 
 -- RegisterBucket( event, interval, callback, isMessage )
 --
@@ -152,14 +207,18 @@ end
 -- interval(int) - time between bucket fireings
 -- callback(func or string) - function pointer, or method name of the object, that gets called when the bucket is cleared
 -- isMessage(boolean) - register AceEvent Messages instead of game events
-local function RegisterBucket(self, event, interval, callback, isMessage)
+local function RegisterBucket(self, event, interval, callback, isMessage, firstInterval)
 	-- try to fetch the librarys
-	if not AceEvent or not AceTimer then 
+	if not CallbackHandler then
+		CallbackHandler = LibStub:GetLibrary("CallbackHandler-1.0", true)
 		AceEvent = LibStub:GetLibrary("AceEvent-3.0", true)
 		AceTimer = LibStub:GetLibrary("AceTimer-3.0", true)
-		if not AceEvent or not AceTimer then
-			error(MAJOR .. " requires AceEvent-3.0 and AceTimer-3.0", 3)
+		if not CallbackHandler or not AceEvent or not AceTimer then
+			error(MAJOR .. " requires CallbackHandler-1.0, AceEvent-3.0 and AceTimer-3.0", 3)
 		end
+		-- Import CallbackHandler.safecall
+		safecall = CallbackHandler.safecall
+		assert(safecall, MAJOR.." requires up-to-date CallbackHandler-1.0 with safecall() implemented)
 	end
 	
 	if type(event) ~= "string" and type(event) ~= "table" then error("Usage: RegisterBucket(event, interval, callback): 'event' - string or table expected.", 3) end
@@ -170,9 +229,9 @@ local function RegisterBucket(self, event, interval, callback, isMessage)
 			error("Usage: RegisterBucket(event, interval, callback): cannot omit callback when event is not a string.", 3)
 		end
 	end
-	if not tonumber(interval) then error("Usage: RegisterBucket(event, interval, callback): 'interval' - number expected.", 3) end
-	if type(callback) ~= "string" and type(callback) ~= "function" then error("Usage: RegisterBucket(event, interval, callback): 'callback' - string or function or nil expected.", 3) end
-	if type(callback) == "string" and type(self[callback]) ~= "function" then error("Usage: RegisterBucket(event, interval, callback): 'callback' - method not found on target object.", 3) end
+	if not tonumber(interval) then error("Usage: RegisterBucket(event, interval, callback, firstInterval): 'interval' - number expected.", 3) end
+	if type(callback) ~= "string" and type(callback) ~= "function" then error("Usage: RegisterBucket(event, interval, callback, firstInterval): 'callback' - string or function or nil expected.", 3) end
+	if type(callback) == "string" and type(self[callback]) ~= "function" then error("Usage: RegisterBucket(event, interval, callback, firstInterval): 'callback' - method not found on target object.", 3) end
 	
 	local bucket = next(bucketCache)
 	if bucket then
@@ -181,6 +240,7 @@ local function RegisterBucket(self, event, interval, callback, isMessage)
 		bucket = { handler = BucketHandler, received = {} }
 	end
 	bucket.object, bucket.callback, bucket.interval = self, callback, tonumber(interval)
+	bucket.firstInterval = tonumber(firstInterval)
 	
 	local regFunc = isMessage and AceEvent.RegisterMessage or AceEvent.RegisterEvent
 	
@@ -210,8 +270,8 @@ end
 -- function MyAddon:UpdateBags()
 --   -- do stuff
 -- end
-function AceBucket:RegisterBucketEvent(event, interval, callback)
-	return RegisterBucket(self, event, interval, callback, false)
+function AceBucket:RegisterBucketEvent(event, interval, callback, firstInterval)
+	return RegisterBucket(self, event, interval, callback, false, firstInterval)
 end
 
 --- Register a Bucket for an AceEvent-3.0 addon message (or a set of messages)
@@ -221,13 +281,13 @@ end
 -- @return The handle of the bucket (for unregistering)
 -- @usage
 -- MyAddon = LibStub("AceAddon-3.0"):NewAddon("MyAddon", "AceBucket-3.0")
--- MyAddon:RegisterBucketEvent("SomeAddon_InformationMessage", 0.2, "ProcessData")
+-- MyAddon:RegisterBucketMessage("SomeAddon_InformationMessage", 0.2, "ProcessData")
 -- 
 -- function MyAddon:ProcessData()
 --   -- do stuff
 -- end
-function AceBucket:RegisterBucketMessage(message, interval, callback)
-	return RegisterBucket(self, message, interval, callback, true)
+function AceBucket:RegisterBucketMessage(message, interval, callback, firstInterval)
+	return RegisterBucket(self, message, interval, callback, true, firstInterval)
 end
 
 --- Unregister any events and messages from the bucket and clear any remaining data.

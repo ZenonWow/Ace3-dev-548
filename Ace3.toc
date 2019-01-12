@@ -15,7 +15,7 @@ AceDBOptions-3.0\AceDBOptions-3.0.xml
 
 AceTimer-3.0\AceTimer-3.0.xml
 AceEvent-3.0\AceEvent-3.0.xml
-# AceBucket-3.0\AceBucket-3.0.xml
+AceBucket-3.0\AceBucket-3.0.xml
 AceHook-3.0\AceHook-3.0.xml
 
 LibSharedMedia-3.0\lib.xml

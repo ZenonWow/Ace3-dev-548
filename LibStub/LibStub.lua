@@ -12,7 +12,7 @@ if not LibStub or LibStub.minor < LIBSTUB_MINOR then
 	LibStub.minor = LIBSTUB_MINOR
 	
 	-- LibStub:NewLibrary(major, minor)
-	-- major (string) - the major version of the library
+	-- major (string) - the name and major version of the library
 	-- minor (string or number ) - the minor version of the library
 	-- 
 	-- returns nil if a newer or same version of the lib is already present
@@ -23,11 +23,16 @@ if not LibStub or LibStub.minor < LIBSTUB_MINOR then
 		
 		local oldminor = self.minors[major]
 		if oldminor and oldminor >= minor then return nil end
-		local libObj = self.libs[major] or {}
-		self.minors[major], self.libs[major] = minor, libObj
-		local globalVar = strsplit('-', major, 2)
-		_G[globalVar] = _G[globalVar] or libObj
-		return libObj, oldminor
+		
+		self.minors[major], lib = minor, self.libs[major] or {}
+		if  not self.libs[major]  then
+			-- first time registering this library (major)
+			self.libs[major] = lib
+			-- if different major versions of the same library are loaded (name conflicts) then it's removed as reference
+			local name = strsplit('-', major, 2)
+			self.libs[name] = not self.libs[name] and lib or nil
+		end
+		return lib, oldminor
 	end
 	
 	-- LibStub:GetLibrary(major, [silent])
@@ -50,5 +55,5 @@ if not LibStub or LibStub.minor < LIBSTUB_MINOR then
 		return pairs(self.libs) 
 	end
 	
-	setmetatable(LibStub, { __call = LibStub.GetLibrary })
+	setmetatable(LibStub, { __call = LibStub.GetLibrary, __index = LibStub.libs })
 end
