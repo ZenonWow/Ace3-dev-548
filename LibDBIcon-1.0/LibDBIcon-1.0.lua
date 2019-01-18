@@ -282,9 +282,10 @@ end
 
 function lib:Lock(name)
 	if not lib:IsRegistered(name) then return end
-	if lib.objects[name] then
-		lib.objects[name]:SetScript("OnDragStart", nil)
-		lib.objects[name]:SetScript("OnDragStop", nil)
+	local button = lib.objects[name]
+	if button then
+		button:SetScript("OnDragStart", nil)
+		button:SetScript("OnDragStop", nil)
 	end
 	local db = getDatabase(name)
 	if db then db.lock = true end
@@ -292,9 +293,10 @@ end
 
 function lib:Unlock(name)
 	if not lib:IsRegistered(name) then return end
-	if lib.objects[name] then
-		lib.objects[name]:SetScript("OnDragStart", onDragStart)
-		lib.objects[name]:SetScript("OnDragStop", onDragStop)
+	local button = lib.objects[name]
+	if button then
+		button:SetScript("OnDragStart", onDragStart)
+		button:SetScript("OnDragStop", onDragStop)
 	end
 	local db = getDatabase(name)
 	if db then db.lock = nil end
@@ -306,9 +308,12 @@ function lib:Hide(name)
 end
 function lib:Show(name)
 	if lib.disabled then return end
+	assert(name, "Usage: LibDBIcon:Show(dataobjectname)")
 	check(name)
-	lib.objects[name]:Show()
-	updatePosition(lib.objects[name])
+	local button = lib.objects[name]
+	assert(button, "LDB object not registered: ".. tostring(name))
+	button:Show()
+	updatePosition(button)
 end
 function lib:IsRegistered(name)
 	return (lib.objects[name] or lib.notCreated[name]) and true or false

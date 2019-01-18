@@ -1,3 +1,4 @@
+
 --- A bucket to catch events in. **AceBucket-3.0** provides throttling of events that fire in bursts and
 -- your addon only needs to know about the full burst.
 -- 
@@ -35,21 +36,23 @@
 -- @class file
 -- @name AceBucket-3.0.lua
 -- @release $Id: AceBucket-3.0.lua 895 2009-12-06 16:28:55Z nevcairiel $
-
--- MINOR = 3.1 added  firstInterval  parameter to RegisterBucketEvent and RegisterBucketMessage. Defaults to 0.
--- The first batch of events is sent after firstInterval (instantly by default, that is on the next OnUpdate).
+-- @patch $Id: AceBucket-3.0.lua 895.1 2019-01 Mongusius, MINOR: 3 -> 3.1
+-- 3.1 added  firstInterval  parameter to RegisterBucketEvent and RegisterBucketMessage. Defaults to 0.
+-- The first batch of events is sent after firstInterval (by default in the next frame, collecting events sent at the same time).
+-- 3.1 moved safecall implementation to CallbackHandler.
 
 local MAJOR, MINOR = "AceBucket-3.0", 3.1
 local AceBucket, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 
 if not AceBucket then return end -- No Upgrade needed
 
-AceBucket.buckets = AceBucket.buckets or {}
-AceBucket.embeds = AceBucket.embeds or {}
+-- Import  CallbackHandler.safecall
+local CallbackHandler = LibStub:GetLibrary("CallbackHandler-1.0")
+local safecall = CallbackHandler.safecall
+assert(safecall, MAJOR.." requires up-to-date CallbackHandler-1.0 with safecall() implemented")
 
 -- the libraries will be lazyly bound later, to avoid errors due to loading order issues
 local AceEvent, AceTimer
-local CallbackHandler, safecall    -- Imported from CallbackHandler
 
 -- Lua APIs
 local tconcat = table.concat
@@ -61,87 +64,98 @@ local assert, loadstring, error = assert, loadstring, error
 -- List them here for Mikk's FindGlobals script
 -- GLOBALS: LibStub, geterrorhandler
 
+AceBucket.buckets = AceBucket.buckets or {}
+AceBucket.embeds = AceBucket.embeds or {}
 
---[[
---[=[
----- safecall(unsafeFunc, arg1, arg2, ...) == pcall(unsafeFunc, arg1, arg2, ...) with errorhandler, using xpcall
---]=]
-local function safecallErrorHandler(err)
-	return _G.geterrorhandler()(err)
+
+
+
+-- Whole safecall implementation will be removed once CallbackHandler.safecall() is commonly available
+-- Until then this is a copy:
+
+----------------------------------------
+-- safecall(unsafeFunc, arg1, arg2, ...) == pcall(unsafeFunc, arg1, arg2, ...) with errorhandler, using xpcall
+----------------------------------------
+
+local function dispatcherErrorHandler(err)  return _G.geterrorhandler()(err)  end
+
+if  not safecall  then
+
+	local SafecallDispatchers = {}
+	function SafecallDispatchers:CreateDispatcher(argCount)
+		local sourcecode = [===[
+			local xpcall, errorhandler = ...
+			local method, ARGS
+			local function safecallThunk()  return method(ARGS)  end
+			
+			local function dispatcher(func, ...)
+				 method = func
+				 if not method then return end
+				 ARGS = ...
+				 return xpcall(safecallThunk, errorhandler)
+			end
+			
+			return dispatcher
+		]===]
+
+		local ARGS = {}
+		for i = 1, argCount do ARGS[i] = "a"..i end
+		sourcecode = sourcecode:gsub("ARGS", tconcat(ARGS, ","))
+		local creator = assert(loadstring(sourcecode, "SafecallDispatchers[argCount="..argCount.."]"))
+		local dispatcher = creator(xpcall, dispatcherErrorHandler)
+		rawset(self, argCount, dispatcher)
+		return dispatcher
+	end
+	setmetatable(SafecallDispatchers, { __index = SafecallDispatchers.CreateDispatcher })
+
+	SafecallDispatchers[0] = function(unsafeFunc)
+		return xpcall(unsafeFunc, dispatcherErrorHandler)
+	end
+
+	function safecall(unsafeFunc, ...)
+		-- we check to see if unsafeFunc is actually a function here and don't error when it isn't
+		-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
+		-- present execution should continue without hinderance
+		if type(unsafeFunc) ~= "function" then  return  end
+		local dispatcher = SafecallDispatchers[select('#', ...)]
+		return dispatcher(unsafeFunc, ...)
+	end
+
 end
 
-----[=[
-local function CreateDispatcher(argCount)
-	local code = [===[
-		local xpcall, eh = ...
-		local method, ARGS
-		local function call() return method(ARGS) end
-	
-		local function dispatch(func, ...)
-			 method = func
-			 if not method then return end
-			 ARGS = ...
-			 return xpcall(call, eh)
+
+
+----------------------------------------
+-- safecall(unsafeFunc, arg1, arg2, ...) alternative implementation with any number of arguments packed in an array and unpacked in the thunk. Simpler and probably slower.
+----------------------------------------
+if  not safecall  then
+
+	function safecall(unsafeFunc, ...)
+		-- we check to see if the func is passed is actually a function here and don't error when it isn't
+		-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
+		-- present execution should continue without hinderance
+		if type(unsafeFunc) ~= "function" then  return  end
+		
+		-- Without parameters call the function directly
+		local nParams = select('#',...)
+		if  0 == nParams  then
+			-- return xpcall(unsafeFunc, _G.geterrorhandler())
+			return xpcall(unsafeFunc, dispatcherErrorHandler)
 		end
-	
-		return dispatch
-	]===]
-	
-	local ARGS = {}
-	for i = 1, argCount do ARGS[i] = "a"..i end
-	code = code:gsub("ARGS", tconcat(ARGS, ","))
-	return assert(loadstring(code, "safecall Dispatcher["..argCount.."]"))(xpcall, safecallErrorHandler)
-end
 
-local Dispatchers = setmetatable({}, {__index=function(self, argCount)
-	local dispatcher = CreateDispatcher(argCount)
-	rawset(self, argCount, dispatcher)
-	return dispatcher
-end})
-Dispatchers[0] = function(func)
-	return xpcall(func, safecallErrorHandler)
-end
-
-local function safecall(func, ...)
-	-- we check to see if the func is passed is actually a function here and don't error when it isn't
-	-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
-	-- present execution should continue without hinderance
-	if type(func) == "function" then
-		return Dispatchers[select('#', ...)](func, ...)
-	end
-end
---]=]
-
-
---[=[ Alternative implementation with any number of arguments packed in an array and unpacked. Probably slower.
-local function safecall(unsafeFunc, ...)
-	-- we check to see if the func is passed is actually a function here and don't error when it isn't
-	-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
-	-- present execution should continue without hinderance
-	if type(unsafeFunc) ~= "function" then  return  end
-	
-	-- Without parameters call the function directly
-	local nParams = select('#',...)
-	if  0 == nParams  then
-		-- return xpcall(unsafeFunc, _G.geterrorhandler())
-		return xpcall(unsafeFunc, safecallErrorHandler)
+		-- Pack the parameters to pass to the actual function
+		local tParams = { ... }
+		-- Unpack the parameters in the thunk
+		local function safecallThunk()  return unsafeFunc( unpack(tParams,1,nParams) )  end
+		-- Do the call through the thunk
+		-- return xpcall(safecallThunk, _G.geterrorhandler())
+		return xpcall(safecallThunk, dispatcherErrorHandler)
 	end
 
-	-- Pack the parameters to pass to the actual function
-	local tParams = { ... }
-	-- Unpack the parameters in the thunk
-	local function safecallThunk()  return unsafeFunc( unpack(tParams,1,nParams) )  end
-	-- Do the call through the thunk
-	-- return xpcall(safecallThunk, _G.geterrorhandler())
-	return xpcall(safecallThunk, safecallErrorHandler)
 end
---]=]
 
-
--- Export to global namespace
-AceAddon.safecall = safecall
-_G.safecall = safecall
---]]
+-- Export in library
+AceBucket.safecall = safecall
 
 
 
@@ -218,7 +232,7 @@ local function RegisterBucket(self, event, interval, callback, isMessage, firstI
 		end
 		-- Import CallbackHandler.safecall
 		safecall = CallbackHandler.safecall
-		assert(safecall, MAJOR.." requires up-to-date CallbackHandler-1.0 with safecall() implemented)
+		assert(safecall, MAJOR.." requires up-to-date CallbackHandler-1.0 with safecall() implemented")
 	end
 	
 	if type(event) ~= "string" and type(event) ~= "table" then error("Usage: RegisterBucket(event, interval, callback): 'event' - string or table expected.", 3) end

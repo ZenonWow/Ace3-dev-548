@@ -40,8 +40,9 @@
 -- @class file
 -- @name AceDB-3.0.lua
 -- @release $Id: AceDB-3.0.lua 1115 2014-09-21 11:52:35Z kaelten $
--- @patch $Id: AceDB-3.0.lua 1115.1 2018-09-26
-local ACEDB_MAJOR, ACEDB_MINOR = "AceDB-3.0", 25.1  -- was MINOR = 25 in release 1115
+-- @patch $Id: AceDB-3.0.lua 1115.1 2019-01 Mongusius, MINOR: 25 -> 25.1
+
+local ACEDB_MAJOR, ACEDB_MINOR = "AceDB-3.0", 25.1
 local AceDB, oldminor = LibStub:NewLibrary(ACEDB_MAJOR, ACEDB_MINOR)
 
 if not AceDB then return end -- No upgrade needed

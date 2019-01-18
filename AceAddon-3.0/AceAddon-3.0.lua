@@ -2,7 +2,7 @@
 -- It'll provide you with a set of callback functions that allow you to simplify the loading
 -- process of your addon.\\
 -- Callbacks provided are:\\
--- * **OnInitialize**, which is called directly after the addon's SavedVariables are fully loaded: during ADDON_LOADED event.
+-- * **OnInitialize**, which is called during ADDON_LOADED event, directly after the addon's SavedVariables are fully loaded.
 -- * **OnEnable** which gets called during the PLAYER_LOGIN event, when most of the data provided by the game is already present.
 -- * **OnDisable**, which is only called when your addon is manually being disabled.
 -- @usage
@@ -29,6 +29,8 @@
 -- @class file
 -- @name AceAddon-3.0.lua
 -- @release $Id: AceAddon-3.0.lua 1084 2013-04-27 20:14:11Z nevcairiel $
+-- @patch $Id: AceAddon-3.0.lua 1084.1 2019-01 Mongusius, MINOR: 12 -> 12.1
+-- 12.1 moved safecall and AutoCreateTablesMeta implementation to CallbackHandler.
 
 local MAJOR, MINOR = "AceAddon-3.0", 12.1
 local AceAddon, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
@@ -47,14 +49,11 @@ local loadstring, assert, error = loadstring, assert, error
 local setmetatable, getmetatable, rawset, rawget = setmetatable, getmetatable, rawset, rawget
 local xpcall = xpcall
 
--- Import  CallbackHandler.safecall  and  CallbackHandler.AutoInnerTablesMeta
+-- Import  CallbackHandler.safecall  and  CallbackHandler.AutoCreateTablesMeta
 local CallbackHandler = LibStub:GetLibrary("CallbackHandler-1.0")
 local safecall = CallbackHandler.safecall
-assert(safecall, MAJOR.." requires up-to-date CallbackHandler-1.0 with safecall() implemented)
-local AutoInnerTablesMeta =  CallbackHandler.AutoInnerTablesMeta  or  _G.AutoInnerTablesMeta
--- local AutoInnerTablesMeta =  CallbackHandler.AutoInnerTablesMeta  or  _G.AutoInnerTablesMeta  or  {__index = function(self, key) self[key] = {} return self[key] end}
--- Make sure it's exported to global
--- _G.AutoInnerTablesMeta = _G.AutoInnerTablesMeta or AutoInnerTablesMeta
+assert(safecall, MAJOR.." requires up-to-date CallbackHandler-1.0 with safecall() implemented")
+local AutoCreateTablesMeta =  CallbackHandler.AutoCreateTablesMeta  or  { __index = function(self, key) self[key] = {} return self[key] end }
 
 -- Global vars/functions that we don't upvalue since they might get hooked, or upgraded
 -- List them here for Mikk's FindGlobals script
@@ -65,93 +64,102 @@ AceAddon.addons = AceAddon.addons or {} -- addons in general
 AceAddon.statuses = AceAddon.statuses or {} -- statuses of addon.
 AceAddon.initializequeue = AceAddon.initializequeue or {} -- addons that are new and not initialized
 AceAddon.enablequeue = AceAddon.enablequeue or {} -- addons that are initialized and waiting to be enabled
-AceAddon.embeds = setmetatable(AceAddon.embeds or {}, AutoInnerTablesMeta) -- contains a list of libraries embedded in an addon
+AceAddon.embeds = setmetatable(AceAddon.embeds or {}, AutoCreateTablesMeta) -- contains a list of libraries embedded in an addon
 
 
---[[
---[=[
----- safecall(unsafeFunc, arg1, arg2, ...) == pcall(unsafeFunc, arg1, arg2, ...) with errorhandler, using xpcall
---]=]
-local function safecallErrorHandler(err)
-	return _G.geterrorhandler()(err)
+
+-- Whole safecall implementation will be removed once CallbackHandler.safecall() is commonly available
+-- Until then this is a copy:
+
+----------------------------------------
+-- safecall(unsafeFunc, arg1, arg2, ...) == pcall(unsafeFunc, arg1, arg2, ...) with errorhandler, using xpcall
+----------------------------------------
+
+local function dispatcherErrorHandler(err)  return _G.geterrorhandler()(err)  end
+
+if  not safecall  then
+
+	local SafecallDispatchers = {}
+	function SafecallDispatchers:CreateDispatcher(argCount)
+		local sourcecode = [===[
+			local xpcall, errorhandler = ...
+			local method, ARGS
+			local function safecallThunk()  return method(ARGS)  end
+			
+			local function dispatcher(func, ...)
+				 method = func
+				 if not method then return end
+				 ARGS = ...
+				 return xpcall(safecallThunk, errorhandler)
+			end
+			
+			return dispatcher
+		]===]
+
+		local ARGS = {}
+		for i = 1, argCount do ARGS[i] = "a"..i end
+		sourcecode = sourcecode:gsub("ARGS", tconcat(ARGS, ","))
+		local creator = assert(loadstring(sourcecode, "SafecallDispatchers[argCount="..argCount.."]"))
+		local dispatcher = creator(xpcall, dispatcherErrorHandler)
+		rawset(self, argCount, dispatcher)
+		return dispatcher
+	end
+	setmetatable(SafecallDispatchers, { __index = SafecallDispatchers.CreateDispatcher })
+
+	SafecallDispatchers[0] = function(unsafeFunc)
+		return xpcall(unsafeFunc, dispatcherErrorHandler)
+	end
+
+	function safecall(unsafeFunc, ...)
+		-- we check to see if unsafeFunc is actually a function here and don't error when it isn't
+		-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
+		-- present execution should continue without hinderance
+		if type(unsafeFunc) ~= "function" then  return  end
+		local dispatcher = SafecallDispatchers[select('#', ...)]
+		return dispatcher(unsafeFunc, ...)
+	end
+
 end
 
-----[=[
-local function CreateDispatcher(argCount)
-	local code = [===[
-		local xpcall, eh = ...
-		local method, ARGS
-		local function call() return method(ARGS) end
-	
-		local function dispatch(func, ...)
-			 method = func
-			 if not method then return end
-			 ARGS = ...
-			 return xpcall(call, eh)
+
+
+----------------------------------------
+-- safecall(unsafeFunc, arg1, arg2, ...) alternative implementation with any number of arguments packed in an array and unpacked in the thunk. Simpler and probably slower.
+----------------------------------------
+if  not safecall  then
+
+	function safecall(unsafeFunc, ...)
+		-- we check to see if the func is passed is actually a function here and don't error when it isn't
+		-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
+		-- present execution should continue without hinderance
+		if type(unsafeFunc) ~= "function" then  return  end
+		
+		-- Without parameters call the function directly
+		local nParams = select('#',...)
+		if  0 == nParams  then
+			-- return xpcall(unsafeFunc, _G.geterrorhandler())
+			return xpcall(unsafeFunc, dispatcherErrorHandler)
 		end
-	
-		return dispatch
-	]===]
-	
-	local ARGS = {}
-	for i = 1, argCount do ARGS[i] = "a"..i end
-	code = code:gsub("ARGS", tconcat(ARGS, ","))
-	return assert(loadstring(code, "safecall Dispatcher["..argCount.."]"))(xpcall, safecallErrorHandler)
-end
 
-local Dispatchers = setmetatable({}, {__index=function(self, argCount)
-	local dispatcher = CreateDispatcher(argCount)
-	rawset(self, argCount, dispatcher)
-	return dispatcher
-end})
-Dispatchers[0] = function(func)
-	return xpcall(func, safecallErrorHandler)
-end
-
-local function safecall(func, ...)
-	-- we check to see if the func is passed is actually a function here and don't error when it isn't
-	-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
-	-- present execution should continue without hinderance
-	if type(func) == "function" then
-		return Dispatchers[select('#', ...)](func, ...)
-	end
-end
---]=]
-
-
---[=[ Alternative implementation with any number of arguments packed in an array and unpacked. Probably slower.
-local function safecall(unsafeFunc, ...)
-	-- we check to see if the func is passed is actually a function here and don't error when it isn't
-	-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
-	-- present execution should continue without hinderance
-	if type(unsafeFunc) ~= "function" then  return  end
-	
-	-- Without parameters call the function directly
-	local nParams = select('#',...)
-	if  0 == nParams  then
-		-- return xpcall(unsafeFunc, _G.geterrorhandler())
-		return xpcall(unsafeFunc, safecallErrorHandler)
+		-- Pack the parameters to pass to the actual function
+		local tParams = { ... }
+		-- Unpack the parameters in the thunk
+		local function safecallThunk()  return unsafeFunc( unpack(tParams,1,nParams) )  end
+		-- Do the call through the thunk
+		-- return xpcall(safecallThunk, _G.geterrorhandler())
+		return xpcall(safecallThunk, dispatcherErrorHandler)
 	end
 
-	-- Pack the parameters to pass to the actual function
-	local tParams = { ... }
-	-- Unpack the parameters in the thunk
-	local function safecallThunk()  return unsafeFunc( unpack(tParams,1,nParams) )  end
-	-- Do the call through the thunk
-	-- return xpcall(safecallThunk, _G.geterrorhandler())
-	return xpcall(safecallThunk, safecallErrorHandler)
 end
---]=]
 
-
--- Export to global namespace
+-- Export in library
 AceAddon.safecall = safecall
-_G.safecall = safecall
---]]
 
 
 
 
+-- Locals
+--
 -- local functions that will be implemented further down
 local Enable, Disable, EnableModule, DisableModule, Embed, NewModule, GetModule, GetName, SetDefaultModuleState, SetDefaultModuleLibraries, SetEnabledState, SetDefaultModulePrototype
 
@@ -167,6 +175,7 @@ local function queuedForInitialization(addon)
 	end
 	return false
 end
+
 
 --- Create a new AceAddon-3.0 addon.
 -- Any libraries you specified will be embeded, and the addon will be scheduled for 
@@ -242,8 +251,8 @@ function AceAddon:GetAddon(name, silent)
 end
 
 -- Global shorthand to access addons, similar to LibStub's. Examples:
--- _G.AceAddon('Prat'), _G.AceAddon('Dominos'), etc.
--- _G.AceAddon.Prat, _G.AceAddon.Dominos, etc.
+-- _G.AceAddon('Prat-3.0'), _G.AceAddon('Dominos'), etc.
+-- _G.AceAddon.Dominos, etc.
 setmetatable(AceAddon, { __call = AceAddon.GetAddon, __index = AceAddon.addons })
 
 -- - Embed a list of libraries into the specified addon.
