@@ -36,7 +36,7 @@ AceGUI-3.0-SharedMediaWidgets\widget.xml
 LibDataBroker-1.1\LibDataBroker-1.1.lua
 LibDBIcon-1.0\LibDBIcon-1.0.lua
 
-AddonEnv\AddonEnv.lua
+LibEnv\LibEnv.lua
 
 Ace3.lua
 

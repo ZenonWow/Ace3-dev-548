@@ -19,7 +19,7 @@ if not LibStub or LibStub.minor < LIBSTUB_MINOR then
 	local function shorten(major)
 		-- Cut off ".0", "-1", remove '-','.'
 		-- Sidenote: AncientLib-11.0 and AncientLib-1.1 would produce the same conflicting shortened name. No problem, as there are no libraries with such high major.
-		return major:gsub("\.0$", ""):gsub("-1$", ""):gsub("[-\.]", "")
+		return major:gsub("%.0$", ""):gsub("%-1$", ""):gsub("[%-%.]", "")
 	end
 	if  not LibStub.short  then
 		LibStub.short = {}

@@ -55,13 +55,11 @@ if  not safecall  then
 	function SafecallDispatchers:CreateDispatcher(argCount)
 		local sourcecode = [===[
 			local xpcall, errorhandler = ...
-			local method, ARGS
-			local function safecallThunk()  return method(ARGS)  end
+			local unsafeFuncUp, ARGS
+			local function safecallThunk()  return unsafeFuncUp(ARGS)  end
 			
-			local function dispatcher(func, ...)
-				 method = func
-				 if not method then return end
-				 ARGS = ...
+			local function dispatcher(unsafeFunc, ...)
+				 unsafeFuncUp, ARGS = unsafeFunc, ...
 				 return xpcall(safecallThunk, errorhandler)
 			end
 			
@@ -87,7 +85,7 @@ if  not safecall  then
 		-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
 		-- present execution should continue without hinderance
 		if type(unsafeFunc) ~= "function" then  return  end
-		local dispatcher = SafecallDispatchers[select('#', ...)]
+		local dispatcher = SafecallDispatchers[select('#',...)]
 		return dispatcher(unsafeFunc, ...)
 	end
 
@@ -106,22 +104,22 @@ end
 if  not safecall  then
 
 	function safecall(unsafeFunc, ...)
-		-- we check to see if the func is passed is actually a function here and don't error when it isn't
+		-- we check to see if the unsafeFunc passed is actually a function here and don't error when it isn't
 		-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
 		-- present execution should continue without hinderance
 		if type(unsafeFunc) ~= "function" then  return  end
 		
 		-- Without parameters call the function directly
-		local nParams = select('#',...)
-		if  0 == nParams  then
+		local argsCount = select('#',...)
+		if  0 == argsCount  then
 			-- return xpcall(unsafeFunc, _G.geterrorhandler())
 			return xpcall(unsafeFunc, dispatcherErrorHandler)
 		end
 
 		-- Pack the parameters to pass to the actual function
-		local tParams = { ... }
+		local args = { ... }
 		-- Unpack the parameters in the thunk
-		local function safecallThunk()  return unsafeFunc( unpack(tParams,1,nParams) )  end
+		local function safecallThunk()  return unsafeFunc( unpack(args,1,argsCount) )  end
 		-- Do the call through the thunk
 		-- return xpcall(safecallThunk, _G.geterrorhandler())
 		return xpcall(safecallThunk, dispatcherErrorHandler)
@@ -140,14 +138,13 @@ _G.safecall = safecall
 
 
 local Dispatchers = {}
-local function CreateDispatcher(self,argCount)
+function Dispatchers:CreateDispatcher(argCount)
 	local sourcecode = [===[
 		local next, xpcall, errorhandler = ...
 		
 		local function dispatcher(callbacks, ...)
 			if  not next(callbacks)  then  return 0  end
-			local unsafeFunc
-			local ARGS = ...
+			local unsafeFunc, ARGS = nil, ...
 			local function xpcallThunk()  return unsafeFunc(ARGS)  end
 			local callbacksRan = 0
 			for  key, callback  in  next, callbacks  do
@@ -171,7 +168,7 @@ local function CreateDispatcher(self,argCount)
 end
 
 --[[
-local function CreateDispatcher(self,argCount)
+local function Dispatchers:CreateDispatcher(argCount)
 	local sourcecode = [===[
 		local next, xpcall, errorhandler = ...
 		
@@ -207,7 +204,7 @@ local function CreateDispatcher(self,argCount)
 end
 --]]
 
-setmetatable(Dispatchers, { __index = CreateDispatcher })
+setmetatable(Dispatchers, { __index = Dispatchers.CreateDispatcher })
 
 
 
@@ -251,7 +248,7 @@ function CallbackHandler:New(target, RegisterName, UnregisterName, UnregisterAll
 		local oldrecurse = registry.recurse
 		registry.recurse = oldrecurse + 1
 
-		local dispatcher = Dispatchers[select('#', ...) + 1]
+		local dispatcher = Dispatchers[select('#',...) + 1]
 		local callbacksRan = dispatcher(callbacks, eventname, ...)
 
 		registry.recurse = oldrecurse
@@ -260,8 +257,8 @@ function CallbackHandler:New(target, RegisterName, UnregisterName, UnregisterAll
 			-- Something in one of our callbacks wanted to register more callbacks; they got queued
 			for eventname,callbacks in pairs(registry.insertQueue) do
 				local first = not rawget(events, eventname) or not next(events[eventname])	-- test for empty before. not test for one member after. that one member may have been overwritten.
-				for self,func in pairs(callbacks) do
-					events[eventname][self] = func
+				for receiver,callback in pairs(callbacks) do
+					events[eventname][receiver] = callback
 					-- fire OnUsed callback?
 					if first and registry.OnUsed then
 						registry.OnUsed(registry, target, eventname)
@@ -295,7 +292,7 @@ function CallbackHandler:New(target, RegisterName, UnregisterName, UnregisterAll
 	--   with functionref receiver can be a table or "addonId"
 	-- all with an optional arg, which, if present, gets passed as first argument (after self if calling method)
 
-	target[RegisterName] = function(self, eventname, method, ... --[[actually just a single arg]])
+	target[RegisterName] = function(receiver, eventname, method, ... --[[actually just a single arg]])
 		if type(eventname) ~= "string" then
 			error("Usage: receiver:"..RegisterName.."(eventname, method[, arg]): 'eventname' - string expected.", 2)
 		end
@@ -309,25 +306,25 @@ function CallbackHandler:New(target, RegisterName, UnregisterName, UnregisterAll
 		local regfunc
 
 		if type(method) == "string" then
-			-- self["method"] calling style
-			if type(self) ~= "table" then
-				error("Usage: receiver:"..RegisterName.."(\"eventname\", \"methodname\"): self was not a table?", 2)
-			elseif self==target then
-				error("Usage: receiver:"..RegisterName.."(\"eventname\", \"methodname\"): do not use Library:"..RegisterName.."(), use your own 'self'", 2)
-			elseif type(self[method]) ~= "function" then
-				error("Usage: receiver:"..RegisterName.."(\"eventname\", \"methodname\"): 'methodname' - method '"..tostring(method).."' not found on self.", 2)
+			-- receiver["method"] calling style
+			if type(receiver) ~= "table" then
+				error("Usage: receiver:"..RegisterName.."(\"eventname\", \"methodname\"): receiver was not a table?", 2)
+			elseif receiver == target then
+				error("Usage: receiver:"..RegisterName.."(\"eventname\", \"methodname\"): do not use Library:"..RegisterName.."(), use your own object as 'self/receiver'", 2)
+			elseif type(receiver[method]) ~= "function" then
+				error("Usage: receiver:"..RegisterName.."(\"eventname\", \"methodname\"): 'methodname' - method '"..tostring(method).."' not found on 'self/receiver'.", 2)
 			end
 
 			if select("#",...)>=1 then	-- this is not the same as testing for arg==nil!
 				local arg = ...
-				regfunc = function(...) self[method](self,arg,...) end
+				regfunc = function(...) receiver[method](receiver,arg,...) end
 			else
-				regfunc = function(...) self[method](self,...) end
+				regfunc = function(...) receiver[method](receiver,...) end
 			end
 		else
-			-- function ref with self=object or self="addonId" or self=thread
-			if type(self)~="table" and type(self)~="string" and type(self)~="thread" then
-				error("Usage: target."..RegisterName.."(self or \"addonId\", eventname, method): 'self or addonId': table or string or thread expected.", 2)
+			-- function ref with receiver=object or receiver="addonId" or receiver=thread
+			if type(receiver)~="table" and type(receiver)~="string" and type(receiver)~="thread" then
+				error("Usage: target."..RegisterName.."(receiver or \"addonId\", eventname, method): 'receiver or addonId': table or string or thread expected.", 2)
 			end
 
 			if select("#",...)>=1 then	-- this is not the same as testing for arg==nil!
@@ -338,13 +335,12 @@ function CallbackHandler:New(target, RegisterName, UnregisterName, UnregisterAll
 			end
 		end
 
-
 		local first = not rawget(events, eventname) or not next(events[eventname])	-- test for empty before. not test for one member after. that one member may have been overwritten.
 
-		if events[eventname][self] or registry.recurse<1 then
+		if events[eventname][receiver] or registry.recurse<1 then
 		-- if registry.recurse<1 then
 			-- we're overwriting an existing entry, or not currently recursing. just set it.
-			events[eventname][self] = regfunc
+			events[eventname][receiver] = regfunc
 			-- fire OnUsed callback?
 			if registry.OnUsed and first then
 				registry.OnUsed(registry, target, eventname)
@@ -353,7 +349,7 @@ function CallbackHandler:New(target, RegisterName, UnregisterName, UnregisterAll
 			-- we're currently processing a callback in this registry, so delay the registration of this new entry!
 			-- yes, we're a bit wasteful on garbage, but this is a fringe case, so we're picking low implementation overhead over garbage efficiency
 			registry.insertQueue = registry.insertQueue or setmetatable({}, AutoCreateTablesMeta)
-			registry.insertQueue[eventname][self] = regfunc
+			registry.insertQueue[eventname][receiver] = regfunc
 		end
 	end
 
@@ -367,24 +363,24 @@ function CallbackHandler:New(target, RegisterName, UnregisterName, UnregisterAll
 	-- eventname  is the event the handler is registered for
 	-- receiver  is the table or a string ("addonId") that identifies the event handler
 
-	target[UnregisterName] = function(self, eventname)
-		if not self or self==target then
-			error("Usage: receiver:"..UnregisterName.."(eventname): bad 'self'", 2)
+	target[UnregisterName] = function(receiver, eventname)
+		if not receiver or receiver == target then
+			error("Usage: receiver:"..UnregisterName.."(eventname): use your own object as 'receiver/receiver'", 2)
 		end
 		if type(eventname) ~= "string" then
 			error("Usage: receiver:"..UnregisterName.."(eventname): 'eventname' - string expected.", 2)
 		end
 		local callbacks = rawget(events, eventname)
-		if callbacks and callbacks[self] then
-			callbacks[self] = nil
+		if callbacks and callbacks[receiver] then
+			callbacks[receiver] = nil
 			-- Fire OnUnused callback?
 			if registry.OnUnused and not next(callbacks) then
 				registry.OnUnused(registry, target, eventname)
 			end
 		end
 		local queuedCallbacks = registry.insertQueue and rawget(registry.insertQueue, eventname)
-		if queuedCallbacks and queuedCallbacks[self] then
-			queuedCallbacks[self] = nil
+		if queuedCallbacks and queuedCallbacks[receiver] then
+			queuedCallbacks[receiver] = nil
 		end
 	end
 
@@ -401,26 +397,26 @@ function CallbackHandler:New(target, RegisterName, UnregisterName, UnregisterAll
 		target[UnregisterAllName] = function(...)
 			local last = select("#",...)
 			if last < 1 then
-				error("Usage: target."..UnregisterAllName.."([whatFor]): missing 'self' or \"addonId\" to unregister events for.", 2)
+				error("Usage: target."..UnregisterAllName.."([whatFor]): missing 'receiver' or \"addonId\" to unregister events for.", 2)
 			end
 			if last == 1 and ... == target then
-				error("Usage: receiver:"..UnregisterAllName.."([whatFor]): supply a meaningful 'self' or \"addonId\"", 2)
+				error("Usage: receiver:"..UnregisterAllName.."([whatFor]): use your own object as 'self/receiver' or \"addonId\"", 2)
 			end
 
 			local count = 0
 			for i=1,last do
-				local self = select(i,...)
+				local receiver = select(i,...)
 				if registry.insertQueue then
 					for eventname, callbacks in pairs(registry.insertQueue) do
-						if callbacks[self] then
-							callbacks[self] = nil
+						if callbacks[receiver] then
+							callbacks[receiver] = nil
 							count = count + 1
 						end
 					end
 				end
 				for eventname, callbacks in pairs(events) do
-					if callbacks[self] then
-						callbacks[self] = nil
+					if callbacks[receiver] then
+						callbacks[receiver] = nil
 						count = count + 1
 						-- Fire OnUnused callback?
 						if registry.OnUnused and not next(callbacks) then

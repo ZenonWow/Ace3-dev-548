@@ -39,7 +39,6 @@ if not AceAddon then return end -- No Upgrade needed.
 local _G, LibStub = _G, LibStub
 -- Export to global namespace for easy access
 _G.AceAddon = _G.AceAddon or AceAddon
--- Exports later:  safecall(unsafeFunc, arg1, arg2, ...) = pcall(unsafeFunc, arg1, arg2, ...) with errorhandler
 
 -- Lua APIs
 local tinsert, tconcat, tremove = table.insert, table.concat, table.remove
@@ -65,96 +64,6 @@ AceAddon.statuses = AceAddon.statuses or {} -- statuses of addon.
 AceAddon.initializequeue = AceAddon.initializequeue or {} -- addons that are new and not initialized
 AceAddon.enablequeue = AceAddon.enablequeue or {} -- addons that are initialized and waiting to be enabled
 AceAddon.embeds = setmetatable(AceAddon.embeds or {}, AutoCreateTablesMeta) -- contains a list of libraries embedded in an addon
-
-
-
--- Whole safecall implementation will be removed once CallbackHandler.safecall() is commonly available
--- Until then this is a copy:
-
-----------------------------------------
--- safecall(unsafeFunc, arg1, arg2, ...) == pcall(unsafeFunc, arg1, arg2, ...) with errorhandler, using xpcall
-----------------------------------------
-
-local function dispatcherErrorHandler(err)  return _G.geterrorhandler()(err)  end
-
-if  not safecall  then
-
-	local SafecallDispatchers = {}
-	function SafecallDispatchers:CreateDispatcher(argCount)
-		local sourcecode = [===[
-			local xpcall, errorhandler = ...
-			local method, ARGS
-			local function safecallThunk()  return method(ARGS)  end
-			
-			local function dispatcher(func, ...)
-				 method = func
-				 if not method then return end
-				 ARGS = ...
-				 return xpcall(safecallThunk, errorhandler)
-			end
-			
-			return dispatcher
-		]===]
-
-		local ARGS = {}
-		for i = 1, argCount do ARGS[i] = "a"..i end
-		sourcecode = sourcecode:gsub("ARGS", tconcat(ARGS, ","))
-		local creator = assert(loadstring(sourcecode, "SafecallDispatchers[argCount="..argCount.."]"))
-		local dispatcher = creator(xpcall, dispatcherErrorHandler)
-		rawset(self, argCount, dispatcher)
-		return dispatcher
-	end
-	setmetatable(SafecallDispatchers, { __index = SafecallDispatchers.CreateDispatcher })
-
-	SafecallDispatchers[0] = function(unsafeFunc)
-		return xpcall(unsafeFunc, dispatcherErrorHandler)
-	end
-
-	function safecall(unsafeFunc, ...)
-		-- we check to see if unsafeFunc is actually a function here and don't error when it isn't
-		-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
-		-- present execution should continue without hinderance
-		if type(unsafeFunc) ~= "function" then  return  end
-		local dispatcher = SafecallDispatchers[select('#', ...)]
-		return dispatcher(unsafeFunc, ...)
-	end
-
-end
-
-
-
-----------------------------------------
--- safecall(unsafeFunc, arg1, arg2, ...) alternative implementation with any number of arguments packed in an array and unpacked in the thunk. Simpler and probably slower.
-----------------------------------------
-if  not safecall  then
-
-	function safecall(unsafeFunc, ...)
-		-- we check to see if the func is passed is actually a function here and don't error when it isn't
-		-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
-		-- present execution should continue without hinderance
-		if type(unsafeFunc) ~= "function" then  return  end
-		
-		-- Without parameters call the function directly
-		local nParams = select('#',...)
-		if  0 == nParams  then
-			-- return xpcall(unsafeFunc, _G.geterrorhandler())
-			return xpcall(unsafeFunc, dispatcherErrorHandler)
-		end
-
-		-- Pack the parameters to pass to the actual function
-		local tParams = { ... }
-		-- Unpack the parameters in the thunk
-		local function safecallThunk()  return unsafeFunc( unpack(tParams,1,nParams) )  end
-		-- Do the call through the thunk
-		-- return xpcall(safecallThunk, _G.geterrorhandler())
-		return xpcall(safecallThunk, dispatcherErrorHandler)
-	end
-
-end
-
--- Export in library
-AceAddon.safecall = safecall
-
 
 
 
