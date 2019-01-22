@@ -8,16 +8,30 @@
 -- All `:Schedule` functions will return a handle to the current timer, which you will need to store if you
 -- need to cancel the timer you just registered.
 --
--- **AceTimer-3.0** can be embeded into your addon, either explicitly by calling AceTimer:Embed(MyAddon) or by
--- specifying it as an embeded library in your AceAddon. All functions will be available on your addon object
+-- **AceTimer-3.0** can be embedded into your addon, either explicitly by calling AceTimer:Embed(MyAddon) or by
+-- specifying it as an embedded library in your AceAddon. All functions will be available on your addon object
 -- and can be accessed directly, without having to explicitly call AceTimer itself.\\
 -- It is recommended to embed AceTimer, otherwise you'll have to specify a custom `self` on all calls you
 -- make into AceTimer.
 -- @class file
 -- @name AceTimer-3.0
 -- @release $Id: AceTimer-3.0.lua 1079 2013-02-17 19:56:06Z funkydude $
+-- @patch $Id: AceBucket-3.0.lua 895.1 2019-01 Mongusius, MINOR: 16 -> 16.1
+-- 16.1 added AceTimer:IsActive(id) and usage doc at top
+--
+-- @usage
+-- MyAddOn = LibStub("AceAddon-3.0"):NewAddon("MyAddOn", "AceTimer-3.0")
+-- or:
+-- LibStub("AceTimer-3.0"):Embed(MyAddOn)
+-- MyAddOn:ScheduleTimer("TimerFeedback", 5)
+-- function MyAddOn:TimerFeedback()  print("5 seconds passed")  end
+-- or:
+-- local AceTimer = LibStub("AceTimer-3.0")
+-- local function scheduledFunc()  print("5 seconds passed")  end
+-- local timerId = AceTimer.ScheduleTimer(anything, scheduledFunc)
+--
 
-local MAJOR, MINOR = "AceTimer-3.0", 16 -- Bump minor on changes
+local MAJOR, MINOR = "AceTimer-3.0", 16.1 -- Bump minor on changes
 local AceTimer, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 
 if not AceTimer then return end -- No upgrade needed
@@ -178,6 +192,14 @@ function AceTimer:CancelAllTimers()
 			AceTimer.CancelTimer(self, k)
 		end
 	end
+end
+
+--- Checks if the timer with the given id, registered by the current addon object ('self') is still active.
+-- This function will return nil when the id is invalid.
+-- @param id The id of the timer, as returned by `:ScheduleTimer` or `:ScheduleRepeatingTimer`
+-- @return true if it's still ticking, otherwise nil.
+function AceTimer:IsActive(id)
+	return activeTimers[id] and true
 end
 
 --- Returns the time left for a timer with the given id, registered by the current addon object ('self').

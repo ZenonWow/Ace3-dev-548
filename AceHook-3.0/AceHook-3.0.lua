@@ -2,8 +2,8 @@
 -- Using AceHook-3.0 is recommended when you need to unhook your hooks again, so the hook chain isn't broken
 -- when you manually restore the original function.
 --
--- **AceHook-3.0** can be embeded into your addon, either explicitly by calling AceHook:Embed(MyAddon) or by 
--- specifying it as an embeded library in your AceAddon. All functions will be available on your addon object
+-- **AceHook-3.0** can be embedded into your addon, either explicitly by calling AceHook:Embed(MyAddon) or by 
+-- specifying it as an embedded library in your AceAddon. All functions will be available on your addon object
 -- and can be accessed directly, without having to explicitly call AceHook itself.\\
 -- It is recommended to embed AceHook, otherwise you'll have to specify a custom `self` on all calls you
 -- make into AceHook.
@@ -15,7 +15,7 @@ local AceHook, oldminor = LibStub:NewLibrary(ACEHOOK_MAJOR, ACEHOOK_MINOR)
 
 if not AceHook then return end -- No upgrade needed
 
-AceHook.embeded = AceHook.embeded or {}
+AceHook.embedded = AceHook.embedded or {}
 AceHook.registry = AceHook.registry or setmetatable({}, {__index = function(tbl, key) tbl[key] = {} return tbl[key] end })
 AceHook.handlers = AceHook.handlers or {}
 AceHook.actives = AceHook.actives or {}
@@ -46,7 +46,7 @@ local protectedScripts = {
 	OnClick = true,
 }
 
--- upgrading of embeded is done at the bottom of the file
+-- upgrading of embedded is done at the bottom of the file
 
 local mixins = {
 	"Hook", "SecureHook",
@@ -64,7 +64,7 @@ function AceHook:Embed( target )
 	for k, v in pairs( mixins ) do
 		target[v] = self[v]
 	end
-	self.embeded[target] = true
+	self.embedded[target] = true
 	-- inject the hooks table safely
 	target.hooks = target.hooks or {}
 	return target
@@ -263,7 +263,7 @@ end
 -- @param handler The handler for the hook, a funcref or a method name. (Defaults to the name of the hooked function)
 -- @param hookSecure If true, AceHook will allow hooking of secure functions.
 -- @usage
--- -- create an addon with AceHook embeded
+-- -- create an addon with AceHook embedded
 -- MyAddon = LibStub("AceAddon-3.0"):NewAddon("HookDemo", "AceHook-3.0")
 -- 
 -- function MyAddon:OnEnable()
@@ -298,7 +298,7 @@ end
 -- @param handler The handler for the hook, a funcref or a method name. (Defaults to the name of the hooked function)
 -- @param hookSecure If true, AceHook will allow hooking of secure functions.
 -- @usage
--- -- create an addon with AceHook embeded
+-- -- create an addon with AceHook embedded
 -- MyAddon = LibStub("AceAddon-3.0"):NewAddon("HookDemo", "AceHook-3.0")
 -- 
 -- function MyAddon:OnEnable()
@@ -355,7 +355,7 @@ end
 -- @param script The script to hook
 -- @param handler The handler for the hook, a funcref or a method name. (Defaults to the name of the hooked script)
 -- @usage
--- -- create an addon with AceHook embeded
+-- -- create an addon with AceHook embedded
 -- MyAddon = LibStub("AceAddon-3.0"):NewAddon("HookDemo", "AceHook-3.0")
 -- 
 -- function MyAddon:OnEnable()
@@ -381,7 +381,7 @@ end
 -- @param script The script to hook
 -- @param handler The handler for the hook, a funcref or a method name. (Defaults to the name of the hooked script)
 -- @usage
--- -- create an addon with AceHook embeded
+-- -- create an addon with AceHook embedded
 -- MyAddon = LibStub("AceAddon-3.0"):NewAddon("HookDemo", "AceHook-3.0")
 -- 
 -- function MyAddon:OnEnable()
@@ -508,7 +508,7 @@ function AceHook:IsHooked(obj, method)
 	return false, nil
 end
 
---- Upgrade our old embeded
-for target, v in pairs( AceHook.embeded ) do
+--- Upgrade our old embedded
+for target, v in pairs( AceHook.embedded ) do
 	AceHook:Embed( target )
 end

@@ -14,8 +14,8 @@
 -- The table will have the different values of "arg1" as keys, and the number of occurances as their value, e.g.\\
 --   { ["player"] = 2, ["target"] = 1, ["party1"] = 1 }
 --
--- **AceBucket-3.0** can be embeded into your addon, either explicitly by calling AceBucket:Embed(MyAddon) or by 
--- specifying it as an embeded library in your AceAddon. All functions will be available on your addon object
+-- **AceBucket-3.0** can be embedded into your addon, either explicitly by calling AceBucket:Embed(MyAddon) or by 
+-- specifying it as an embedded library in your AceAddon. All functions will be available on your addon object
 -- and can be accessed directly, without having to explicitly call AceBucket itself.\\
 -- It is recommended to embed AceBucket, otherwise you'll have to specify a custom `self` on all calls you
 -- make into AceBucket.
@@ -39,7 +39,7 @@
 -- @patch $Id: AceBucket-3.0.lua 895.1 2019-01 Mongusius, MINOR: 3 -> 3.1
 -- 3.1 added  firstInterval  parameter to RegisterBucketEvent and RegisterBucketMessage. Defaults to 0.
 -- The first batch of events is sent after firstInterval (by default in the next frame, collecting events sent at the same time).
--- 3.1 moved safecall implementation to CallbackHandler.
+-- 3.1 moved safecall implementation to CallbackHandler and uses xpcall(callThunk, dispatcherErrorHandler) now.
 
 local MAJOR, MINOR = "AceBucket-3.0", 3.1
 local AceBucket, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
@@ -67,7 +67,66 @@ local assert, loadstring, error = assert, loadstring, error
 AceBucket.buckets = AceBucket.buckets or {}
 AceBucket.embeds = AceBucket.embeds or {}
 
+local function dispatcherErrorHandler(err)  return _G.geterrorhandler()(err)  end
 
+if true then
+
+-- FireBucket ( bucket )
+--
+-- send the bucket to the callback function and schedule the next FireBucket in interval seconds
+local function FireBucket(bucket)
+	-- bucket.timer = nil
+	local received = bucket.received
+	
+	-- we dont want to fire empty buckets
+	if next(received) then
+		--[[
+		local callback = bucket.callback
+		if type(callback) == "string" then
+			safecall(bucket.object[callback], bucket.object, received)
+		else
+			safecall(callback, received)
+		end
+		--]]
+		xpcall(bucket.callThunk, dispatcherErrorHandler)
+		
+		wipe(received)
+		
+		-- if the bucket was not empty, schedule repeating FireBucket after interval seconds
+		-- the bucket won't be fired until this timer finishes
+		if  not AceTimer.activeTimers[bucket.timer]  then
+			bucket.timer = AceTimer.ScheduleRepeatingTimer(bucket, FireBucket, bucket.interval, bucket)
+		end
+		
+	else
+		-- if it was empty, clear the timer and wait for the next event
+		AceTimer.CancelTimer(bucket, bucket.timer)
+		bucket.timer = nil
+	end
+end
+
+-- BucketHandler ( event, arg1 )
+-- 
+-- callback func for AceEvent
+-- stores arg1 in the received table, and schedules the bucket if necessary
+local function BucketHandler(bucket, event, arg1)
+	if arg1 == nil then
+		arg1 = "nil"
+	end
+	
+	bucket.received[arg1] = (bucket.received[arg1] or 0) + 1
+	
+	if  not bucket.timer  then
+		-- No timer -> last callback() was mera than interval ago. Send events in next framedraw -> interval = 0 -> 0.01
+		bucket.timer = AceTimer.ScheduleTimer(bucket, FireBucket, bucket.firstInterval or 0, bucket)
+	end
+end
+
+end  -- if true then
+
+
+-- Alternative timer management:
+if  not FireBucket  then
 
 -- FireBucket ( bucket )
 --
@@ -79,20 +138,8 @@ local function FireBucket(bucket)
 	-- we dont want to fire empty buckets
 	if next(received) then
 		bucket.lastTime = GetTime()
-		local callback = bucket.callback
-		if type(callback) == "string" then
-			safecall(bucket.object[callback], bucket.object, received)
-		else
-			safecall(callback, received)
-		end
-		
+		xpcall(bucket.callThunk, dispatcherErrorHandler)
 		wipe(received)
-		
-		-- Outdated (one less timer now):
-		-- if the bucket was not empty, schedule another FireBucket in interval seconds
-		-- the bucket won't be fired until this timer runs out
-		-- bucket.timer = AceTimer.ScheduleTimer(bucket, FireBucket, bucket.interval, bucket)
-	else -- if it was empty, clear the timer and wait for the next event
 	end
 end
 
@@ -100,26 +147,19 @@ end
 -- 
 -- callback func for AceEvent
 -- stores arg1 in the received table, and schedules the bucket if necessary
-local function BucketHandler(self, event, arg1)
-	if arg1 == nil then
-		arg1 = "nil"
-	end
+local function BucketHandler(bucket, event, arg1)
+	if arg1 == nil then  arg1 = "nil"  end
 	
-	self.received[arg1] = (self.received[arg1] or 0) + 1
+	bucket.received[arg1] = (bucket.received[arg1] or 0) + 1
 	
-	if  not self.timer  then
-		local sinceLast = GetTime() - (bucket.lastTime or 0)
-		local interval = self.interval - sinceLast
-		if  interval <= 0  then  interval = self.firstInterval  end
-		self.timer = AceTimer.ScheduleTimer(self, FireBucket, interval or 0, self)
-		
-		-- Outdated (one less timer now):
-		-- If the next send is not scheduled then the last FireBucket() happened more then self.interval seconds ago.
-		-- Therefore the events can be sent instantly. Wait only the minimum time (firstInterval) before sending.
-		-- Default is zero which hopefully sends on the next OnUpdate cycle, collecting all events sent in this framedraw.
-		-- self.timer = AceTimer.ScheduleTimer(self, FireBucket, self.firstInterval or 0, self)
+	if  not bucket.timer  then
+		local interval = (bucket.lastTime or 0) + bucket.interval - GetTime()
+		if  interval <= 0  then  interval = bucket.firstInterval  end
+		bucket.timer = AceTimer.ScheduleTimer(bucket, FireBucket, interval, bucket)
 	end
 end
+
+end  -- if  not FireBucket  then
 
 
 local bucketCache = setmetatable({}, {__mode='k'})
@@ -164,6 +204,11 @@ local function RegisterBucket(self, event, interval, callback, isMessage, firstI
 	end
 	bucket.object, bucket.callback, bucket.interval = self, callback, tonumber(interval)
 	bucket.firstInterval = tonumber(firstInterval)
+	if  type(callback) == "string"  then
+		function bucket.callThunk()  return bucket.object[bucket.callback](bucket.object, bucket.received) end
+	elseif  type(callback) == "function"  then
+		function bucket.callThunk()  return bucket.callback(bucket.received) end
+	end
 	
 	local regFunc = isMessage and AceEvent.RegisterMessage or AceEvent.RegisterEvent
 	

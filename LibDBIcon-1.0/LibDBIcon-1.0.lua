@@ -303,8 +303,9 @@ function lib:Unlock(name)
 end
 
 function lib:Hide(name)
-	if not lib.objects[name] then return end
-	lib.objects[name]:Hide()
+	local button = lib.objects[name]
+	if not button then return end
+	button:Hide()
 end
 function lib:Show(name)
 	if lib.disabled then return end
@@ -315,6 +316,17 @@ function lib:Show(name)
 	button:Show()
 	updatePosition(button)
 end
+function lib:Toggle(name, shown)
+	if lib.disabled then return end
+	assert(name, "Usage: LibDBIcon:Show(dataobjectname)")
+	check(name)
+	local button = lib.objects[name]
+	assert(button, "LDB object not registered: ".. tostring(name))
+	if  shown == nil  then  shown = not button:IsShown()  end
+	button:SetShown(shown)
+	if shown then  updatePosition(button)  end
+end
+
 function lib:IsRegistered(name)
 	return (lib.objects[name] or lib.notCreated[name]) and true or false
 end

@@ -3,6 +3,7 @@
 local _G, _ADDON = LibEnv.UseNoGlobals(...)
 local _G, _ADDON = LibEnv.UseAddonEnv(...)
 local _G, _ADDON = LibEnv.UseGlobalEnv(...)
+local ADDON_NAME = ...    -- if necessary
 -- UseAddonAndGlobalEnv:  use variable in _ADDON environment; if does not exist there (== nil) then in _G
 local _G, _ADDON = LibEnv.UseAddonAndGlobalEnv(...)
 --]]
