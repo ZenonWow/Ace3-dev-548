@@ -1,7 +1,14 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
 
-<!--@no-lib-strip@--
+<!-- Library stripping format: -->
+
+<!-- @no-lib-strip@
+These libraries were stripped, and won't be loaded.
+@end-no-lib-strip@ -->
+
 <!--@no-lib-strip@-->
+<!-- These libraries can be protentially stripped. -->
+<!-- <Script  file="Libs\SomeLib.lua" /> -->    <!-- This library is also stripped. -->
 <!--@end-no-lib-strip@-->
 
 <Script  file="LibStub\LibStub.lua" />
