@@ -1,0 +1,39 @@
+## Interface: 50400
+## Title: Ace3 library AceGUI-3.0
+## Author: Ace3 Development Team
+## X-Website: http://www.wowace.com
+## X-Category: Library
+## X-License: Limited BSD
+
+## LoadOnDemand: 1
+## OptionalDeps: LibStub, CallbackHandler-1.0
+
+
+AceGUI-3.0.lua
+
+#### Container
+widgets\AceGUIContainer-BlizOptionsGroup.lua
+widgets\AceGUIContainer-DropDownGroup.lua
+widgets\AceGUIContainer-Frame.lua
+widgets\AceGUIContainer-InlineGroup.lua
+widgets\AceGUIContainer-ScrollFrame.lua
+widgets\AceGUIContainer-SimpleGroup.lua
+widgets\AceGUIContainer-TabGroup.lua
+widgets\AceGUIContainer-TreeGroup.lua
+widgets\AceGUIContainer-Window.lua
+
+#### Widgets
+widgets\AceGUIWidget-Button.lua
+widgets\AceGUIWidget-CheckBox.lua
+widgets\AceGUIWidget-ColorPicker.lua
+widgets\AceGUIWidget-DropDown.lua
+widgets\AceGUIWidget-DropDown-Items.lua
+widgets\AceGUIWidget-EditBox.lua
+widgets\AceGUIWidget-Heading.lua
+widgets\AceGUIWidget-Icon.lua
+widgets\AceGUIWidget-InteractiveLabel.lua
+widgets\AceGUIWidget-Keybinding.lua
+widgets\AceGUIWidget-Label.lua
+widgets\AceGUIWidget-MultiLineEditBox.lua
+widgets\AceGUIWidget-Slider.lua
+

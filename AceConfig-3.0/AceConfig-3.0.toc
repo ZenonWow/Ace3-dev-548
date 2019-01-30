@@ -1,0 +1,18 @@
+## Interface: 50400
+## Title: Ace3 library AceConfig-3.0
+## Author: Ace3 Development Team
+## X-Website: http://www.wowace.com
+## X-Category: Library
+## X-License: Limited BSD
+
+## LoadOnDemand: 1
+## OptionalDeps: LibStub, CallbackHandler-1.0, AceConfigRegistry-3.0, AceConfigCmd-3.0, AceConfigDialog-3.0, AceConfigDropdown-3.0
+
+
+AceConfigRegistry-3.0\AceConfigRegistry-3.0.lua
+AceConfigCmd-3.0\AceConfigCmd-3.0.lua
+AceConfigDialog-3.0\AceConfigDialog-3.0.lua
+# AceConfigDropdown-3.0\AceConfigDropdown-3.0.lua
+
+AceConfig-3.0.lua
+
