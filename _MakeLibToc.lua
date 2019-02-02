@@ -1,8 +1,8 @@
 local template =
 [===[## Interface: 50400
-## Title: Ace3 library ADDON_NAME
+## Title: Lib: ADDON_NAME
 ## Author: Ace3 Development Team
-## X-Website: http://www.wowace.com
+## X-Website: http://www.wowace.com/projects/ace3/
 ## X-Category: Library
 ## X-License: Limited BSD
 
@@ -31,50 +31,76 @@ local addons = {
 "AceSerializer-3.0",
 "AceTab-3.0",
 "AceTimer-3.0",
-"CallbackHandler-1.0",
-"LibDataBroker-1.1",
-"LibDBIcon-1.0",
-"LibEnv",
-"LibSharedMedia-3.0",
--- "LibStub",  -- already has LibStub.toc
+-- "CallbackHandler-1.0",  -- from CallbackHandler-1.0-r16.zip
+-- "LibDataBroker-1.1",  -- recreated from  https://github.com/tekkub/libdatabroker-1-1/blob/52a68af9/LibDataBroker-1.1.toc  --  Remove all the other crap, this lib isn't standalone
+-- "LibDBIcon-1.0",  -- from LibDBIcon-1.0-r38-release.zip
+-- "LibDataBrokerIcon-1.0",  -- from LibDBIcon-1.0-r38-release.zip
+-- "LibSharedMedia-3.0",  -- from LibSharedMedia-3.0-r87.zip
+-- "LibCommon",  -- custom LibCommon.toc
+-- "LibStub",  -- from LibStub-1.0.2-40200.zip
 }
 
 
 
-local D1 = "LibStub, CallbackHandler-1.0"
+local D2 = "LibStub, CallbackHandler-1.0"
+local D3 = "LibStub, LibCommon, CallbackHandler-1.0"
 local dependencies = {
+	["LibCommon"]                        = "",
 	["LibStub"]                          = "",
-	["LibEnv"]                           = "LibStub",
-	["CallbackHandler-1.0"]              = "LibStub",
-	["LibDBIcon-1.0"]                    = D1..", LibDataBroker-1.1",
-	["AceBucket-3.0"]                    = D1..", AceEvent-3.0, AceTimer-3.0",
-	["AceConfig-3.0"]                    = D1..", AceConfigRegistry-3.0, AceConfigCmd-3.0, AceConfigDialog-3.0, AceConfigDropdown-3.0",
-	["AceConfigCmd-3.0"]                    = D1..", AceConfigRegistry-3.0, AceConsole-3.0",
-	["AceConfigDialog-3.0"]                    = D1..", AceGUI-3.0, AceConfigRegistry-3.0",
-	-- "AceGUISharedMediaWidgets-1.0":
-	["AceGUI-3.0-SharedMediaWidgets"]                    = D1..", AceGUI-3.0, LibSharedMedia-3.0",
-}
---[[
-["AceAddon-3.0"]                     = D1,
-["AceComm-3.0"]                      = D1,
-["AceConfig-3.0"]                    = D1,
-["AceConsole-3.0"]                   = D1,
-["AceDB-3.0"]                        = D1,
-["AceDBOptions-3.0"]                 = D1,
-["AceEvent-3.0"]                     = D1,
-["AceGUI-3.0"]                       = D1,
-["AceHook-3.0"]                      = D1,
-["AceLocale-3.0"]                    = D1,
-["AceSerializer-3.0"]                = D1,
-["AceTab-3.0"]                       = D1,
-["AceTimer-3.0"]                     = D1,
-["LibDataBroker-1.1"]                = D1,
-["LibSharedMedia-3.0"]               = D1,
---]]
+	["CallbackHandler-1.0"]              = "LibStub, LibCommon",
+	["LibDataBroker-1.1"]                = D3,
+	["LibDBIcon-1.0"]                    = D2..",   LibDataBroker-1.1",
 
+	["AceBucket-3.0"]                    = D3..",   AceEvent-3.0, AceTimer-3.0",
+	["AceConfig-3.0"]                    = D2..",   AceConsole-3.0, AceGUI-3.0,   AceConfigRegistry-3.0, AceConfigCmd-3.0, AceConfigDialog-3.0",    -- , AceConfigDropdown-3.0",
+	["AceConfigCmd-3.0"]                 = D2..",   AceConsole-3.0,   AceConfigRegistry-3.0",
+	["AceConfigDialog-3.0"]              = D2..",   AceGUI-3.0,   AceConfigRegistry-3.0",
+	-- "AceGUISharedMediaWidgets-1.0":
+	["AceGUI-3.0-SharedMediaWidgets"]    = D2..",   AceGUI-3.0, LibSharedMedia-3.0",
+	--[[
+	["LibSharedMedia-3.0"]               = D2,
+	["AceAddon-3.0"]                     = D2,
+	["AceEvent-3.0"]                     = D2,
+	["AceTimer-3.0"]                     = D2,
+	["AceHook-3.0"]                      = D2,
+	["AceDB-3.0"]                        = D2,
+	["AceDBOptions-3.0"]                 = D2,
+	["AceLocale-3.0"]                    = D2,
+	["AceConsole-3.0"]                   = D2,
+
+	["AceGUI-3.0"]                       = D2,
+	["AceConfig-3.0"]                    = D2,
+	["AceSerializer-3.0"]                = D2,
+	["AceComm-3.0"]                      = D2,
+	["AceTab-3.0"]                       = D2,
+	--]]
+}
+
+
+local commonfiles = [==[
+]==]
 
 
 local morefiles = {}
+
+morefiles["LibStub"] = [==[
+# Packaged with Ace3
+LibStub.lua
+
+# Extensions
+LibStub.Short.lua
+LibStub.SetEnv.lua
+]==]
+
+morefiles["LibCommon"] = [==[
+LibCommon.base.lua
+LibCommon.UpgradeCheck.lua
+
+LibCommon.isanytype.lua
+LibCommon.iscallable.lua
+LibCommon.pairsOrOne.lua
+LibCommon.softassertf.lua
+]==]
 
 morefiles["AceComm-3.0"] = [==[
 ChatThrottleLib.lua
@@ -137,8 +163,10 @@ BackgroundWidget.lua
 local function writeToc(foldername)
 	local addonname = foldername:match(".*/(.-)$") or foldername
 	local filename = foldername.."/"..addonname..".toc"
-	local deps,files = dependencies[addonname] or D1, morefiles[addonname]
-	files =  files  and  "\n\n"..files  or  ("\n"..addonname..".lua\n")
+	print(addonname..".toc")
+	local deps,files = dependencies[addonname] or D2, morefiles[addonname]
+	if commonfiles ~= "" then  commonfiles = commonfiles.."\n"  end
+	files =  files  and  "\n\n"..commonfiles..files  or  ("\n"..commonfiles..addonname..".lua\n")
 	local file = io.open(filename, "w")
 	-- local body = template:gsub("ADDON_NAME", addonname):gsub("DEPENDENCIES", deps)..(files).."\n",n"
 	local body = template:gsub("ADDON_NAME", addonname) .. "## OptionalDeps: "..deps.."\n" .. files.."\n"
@@ -152,6 +180,9 @@ local function MakeLibToc()
 	for  i,foldername  in ipairs(addons) do
 		writeToc(foldername)
 	end
+	print()
+	print("Press ENTER")
+	io.read()
 end
 
 

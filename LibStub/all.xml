@@ -1,0 +1,10 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+
+<!-- Packaged with Ace3 -->
+<Script  file="LibStub.lua" />
+
+<!-- Extensions -->
+<Script  file="LibStub.Short.lua" />
+<Script  file="LibStub.SetEnv.lua" />
+
+</Ui>
