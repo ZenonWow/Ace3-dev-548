@@ -1,12 +1,12 @@
 ## Interface: 50400
-## Title: Ace3 library AceGUI-3.0-SharedMediaWidgets
+## Title: Lib: AceGUI-3.0-SharedMediaWidgets
 ## Author: Ace3 Development Team
-## X-Website: http://www.wowace.com
+## X-Website: http://www.wowace.com/projects/ace3/
 ## X-Category: Library
 ## X-License: Limited BSD
 
 ## LoadOnDemand: 1
-## OptionalDeps: LibStub, CallbackHandler-1.0, AceGUI-3.0, LibSharedMedia-3.0
+## OptionalDeps: LibStub, CallbackHandler-1.0,   AceGUI-3.0, LibSharedMedia-3.0
 
 
 prototypes.lua

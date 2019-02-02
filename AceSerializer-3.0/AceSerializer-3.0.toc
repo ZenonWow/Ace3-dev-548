@@ -1,7 +1,7 @@
 ## Interface: 50400
-## Title: Ace3 library AceSerializer-3.0
+## Title: Lib: AceSerializer-3.0
 ## Author: Ace3 Development Team
-## X-Website: http://www.wowace.com
+## X-Website: http://www.wowace.com/projects/ace3/
 ## X-Category: Library
 ## X-License: Limited BSD
 

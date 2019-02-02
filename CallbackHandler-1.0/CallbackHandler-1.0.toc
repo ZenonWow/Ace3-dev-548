@@ -1,12 +1,19 @@
 ## Interface: 50400
-## Title: Ace3 library CallbackHandler-1.0
+## Title: Lib: CallbackHandler-1.0
+## Notes: Callback handling Library, normally embedded inside other libraries
 ## Author: Ace3 Development Team
-## X-Website: http://www.wowace.com
+## X-Website: http://www.wowace.com/projects/callbackhandler/
 ## X-Category: Library
-## X-License: Limited BSD
+## X-License: BSD-2.0
+## X-Curse-Packaged-Version: r16
+## X-Curse-Project-Name: CallbackHandler-1.0
+## X-Curse-Project-ID: callbackhandler
+## X-Curse-Repository-ID: wow/callbackhandler/mainline
 
 ## LoadOnDemand: 1
-## OptionalDeps: LibStub
+## OptionalDeps: LibStub, LibCommon
 
+
+# LibStub\LibStub.lua
 CallbackHandler-1.0.lua
 
