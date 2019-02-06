@@ -20,7 +20,7 @@ LibStub.lua
 
 # Extensions
 LibStub.Short.lua
-LibStub.SetEnv.lua
+# LibStub.SetEnv.lua
 
 
 # LibStub.New.lua -- To include in small / one-file libraries only.

@@ -7,13 +7,17 @@ if  not LibStub.NewGlobalLibrary  or  LibStub.minor < LIBSTUB_VERSION and (LibSt
 	LibStub.minorNewGlobalLibrary = LIBSTUB_VERSION
 	_G[LIBSTUB_NAME] = LibStub
 
-	function LibStub:NewGlobalLibrary(libname, version, globalname)
-		local global = _G[globalname or libname]
-		local lib, oldversion = self:NewLibrary(libname, version, global)
+	function LibStub:NewGlobalLibrary(name, version, globalname, oldversion)
+		local global = _G[globalname or name]
+		if  type(global)=='table'  and  not self.libs[name]  then    -- Import if not in LibStub.
+			self.libs[name], self.minors[name] = global, toversion(oldversion or global.version) or 1
+		end
+		local lib, oldversion = self:NewLibrary(name, version, nil, nil, 2)
+
 		if  lib  and  not global  then
-			_G[globalname or libname] = lib
+			_G[globalname or name] = lib
 		elseif  lib  and  global ~= lib  then
-			_G.geterrorhandler()( "Warning: LibStub:NewGlobalLibrary("..libname..", "..version..", ".._G.tostring(globalname).."):  _G.".._G.tostring(globalname or libname).." is different from the library in LibStub." )
+			_G.geterrorhandler()( "Warning: LibStub:NewGlobalLibrary("..name..", "..version..", "..tostring(globalname).."):  _G."..tostring(globalname or name).." is different from the library in LibStub." , 2 )
 		end
 		return lib, oldversion
 	end

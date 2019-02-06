@@ -15,7 +15,7 @@ if not LibEnv then  return  end
 -- Import
 local _G, LibCommon = getfenv(1), LibCommon
 
--- Upvalued Lua globals
+-- Upvalued Lua globals:
 local assert,setfenv,rawget = assert,setfenv,rawget
 
 -- Export

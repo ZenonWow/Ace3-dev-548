@@ -6,69 +6,113 @@
 -- Different major versions are generally not around. If in doubt, use the reference with version number.
 -- Does _not_ raise an error if the library is not found.
 
+-- GLOBALS:
+-- Used from _G:  pairs, next, getmetatable, setmetatable, geterrorhandler
+-- Used from LibCommon:
+-- Upvalued Lua globals:  type,getmetatable,setmetatable,rawset
+-- Exported to _G:  LibStubs
+-- Exported to LibCommon:  initmetatable
 
--- local _G, LibShort = _G, LibStub:NewLibrary('LibStub.Short', 1)
-local _G, LibShort = _G, LibStub:NewGlobalLibrary('LibStub.Short', 1, 'LibStubs')
-if LibShort then
-	-- _G.LibStubs = LibShort
-	-- LibStub.Short = LibShort
 
-	local function InsertCheckConflict(LibShort, libname, lib, short)
-		local conflict = LibShort[short]
+local _G, LIBSTUBS_NAME = _G, LIBSTUBS_NAME or 'LibStubs'
+local Shorty = LibStub:NewLibrary("LibStub.Short", 1)
+
+if Shorty then
+
+	-- Short name -> library index
+	Shorty.shortNames = Shorty.shortNames or {}
+
+	-- Exported to  LibStub.Short:
+	LibStub.Short = LibStub.Short or Shorty.shortNames
+	if LibStub.Short ~= Shorty.shortNames then  _G.geterrorhandler()("_G.LibStub.Short is already in use.")
+
+	-- Exported to _G:  LibStubs == LibStub.Short
+	_G[LIBSTUBS_NAME] = _G[LIBSTUBS_NAME] or Shorty.shortNames
+	if _G[LIBSTUBS_NAME] ~= Shorty.shortNames then  _G.geterrorhandler()("LibStub.Short:  _G."..LIBSTUBS_NAME.." is already in use.")
+
+
+	local function InsertCheckConflict(shortNames, libname, lib, short)
+		local conflict = shortNames[short]
 		if  conflict == lib  then  return  end
 		if  conflict  and  libname <= (conflict.libname or "")  then  return  end
-		LibShort[short] = lib
+		shortNames[short] = lib
 	end
 
-	local function IndexLib(LibShort, libname, lib)
+	function Shorty.InsertLib(shortNames, libname, lib)
 		-- Remove '-','.'
-		InsertCheckConflict(LibShort, libname, lib, libname:gsub("[%-%.]", "") )
+		InsertCheckConflict(shortNames, libname, lib, libname:gsub("[%-%.]", "") )
 		-- Remove version: "-n.n" and remove '-','.'
-		InsertCheckConflict(LibShort, libname, lib, libname:gsub("%-[%.%d]+$", ""):gsub("[%-%.]", "") )
+		InsertCheckConflict(shortNames, libname, lib, libname:gsub("%-[%.%d]+$", ""):gsub("[%-%.]", "") )
 	end
 
+	if LibStub.RegisterCallback then
+		LibStub:RegisterCallback(Shorty.shortNames, Shorty.InsertLib)
+	end
+end
+
+
+
+-- _OnCreateLibrary() callback without LibStub:RegisterCallback() (<- one line)
+if  Shorty  and  not LibStub.RegisterCallback  then
+
+	-- Upvalued globals:
+	local LibStub,rawset = LibStub,rawset
+	local type,getmetatable,setmetatable = type,getmetatable,setmetatable
+	local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
+
+	-- Exported to LibCommon:  initmetatable
+	LibCommon.initmetatable = LibCommon.initmetatable  or function(obj)
+		local meta = getmetatable(obj) ; if not meta then  meta = {} ; setmetatable(obj, meta)  end ; return type(meta)=='table' and meta  end
+	end
 
 	-- Hook the original LibStub.libs map.
-	function LibShort:_HookLibs(libs)
-		self._libs = libs
+	function Shorty:HookLibs(libs)
+		self.libs = libs
+
+		-- This hook is specifically tailored for this `shortNames` index:
+		local InsertLib,shortNames = self.InsertLib, self.shortNames
 
 		-- Import the loaded libraries from LibStub.
-		for libname,lib in pairs(libs) do
+		for libname,lib in _G.pairs(libs) do
 			lib.libname = libname
-			IndexLib(self, libname, lib)
+			InsertLib(shortNames, libname, lib)
 		end
 
-		-- The metatable hook to capture new libraries.
-		local rawset = _G.rawset
-		self._libsMeta = self._libsMeta or {}
-		-- `self` (LibShort) is upvalued, `libs` is _not_, it's a parameter of __newindex()
-		self._libsMeta.__newindex = function(libs, libname, lib)
+		local meta = LibCommon.initmetatable(libs)
+		assert(type(meta)=='table', "LibStub.Short is incompatible with a custom protected metatable on LibStub.libs. Libraries loaded after this will not be indexed.")
+
+		-- Unhook old hook before upgrading.
+		if meta and meta.__newindex == meta.ShortStubsHook then  meta.__newindex = nil  end
+		assert(not meta.__newindex), "LibStub.Short is incompatible with a custom metatable on LibStub.libs. Libraries loaded after this will not be indexed.")
+
+	-- The metatable hook to capture new libraries.
+		meta.ShortStubsHook = function(libs, libname, lib)
+			-- Only self (self) is upvalued.
 			rawset(libs, libname, lib)
-			IndexLib(self, libname, lib)
+			InsertLib(shortNames, libname, lib)
 		end
 
-		-- Hook the metatable of LibStub.libs
-		if getmetatable(libs)
-		then  _G.geterrorhandler()("LibShort:_HookLibStub()  is incompatible with a custom modification of LibStub.libs. Libraries loaded after this will not be indexed.")
-		else  setmetatable(LibStub.libs, self._libsMeta)
-		end
+		-- Hook inserting new libraries into LibStub.libs.
+		meta.__newindex = meta.ShortStubsHook
 	end
 
 	-- For completeness:
-	function LibShort:_UnhookLibs()
-		if getmetatable(self._libs) ~= self._libsMeta
-		then  _G.geterrorhandler()("LibShort:_UnookLibStub():  the metatable of LibStub.libs has been modified, cannot unhook.")
-		else  setmetatable(self._libs, nil)
+	function Shorty:UnhookLibs()
+		local meta = _G.getmetatable(self.libs)
+		if type(meta)~='table' or meta.__newindex ~= meta.ShortStubsHook then
+			_G.geterrorhandler()("LibStub.Short:UnhookLibs():  the metatable of LibStub.libs has been modified, cannot unhook.")
+		else
+			meta.__newindex = nil
+			if not _G.next(meta) then  _G.setmetatable(self.libs, nil)  end
 		end
-		self._libsMeta = nil
-		-- self._libs = nil
+		self.libs = nil
 	end
 
 
 	-- Set up.
-	LibShort:_HookLibs(LibStub.libs)
+	Shorty:HookLibs(LibStub.libs)
 
-end -- LibShort
+end -- LibStub.Short
 
 
 
