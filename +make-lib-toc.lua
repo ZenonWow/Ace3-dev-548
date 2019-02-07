@@ -1,3 +1,6 @@
+-- +make-lib-toc.lua
+
+
 local template =
 [===[## Interface: 50400
 ## Title: Lib: ADDON_NAME
@@ -93,13 +96,8 @@ LibStub.SetEnv.lua
 ]==]
 
 morefiles["LibCommon"] = [==[
-LibCommon.base.lua
-LibCommon.UpgradeCheck.lua
-
-LibCommon.isanytype.lua
-LibCommon.iscallable.lua
-LibCommon.pairsOrOne.lua
-LibCommon.softassertf.lua
+# LibCommon-all.lua
+parts\all.xml
 ]==]
 
 morefiles["AceComm-3.0"] = [==[
