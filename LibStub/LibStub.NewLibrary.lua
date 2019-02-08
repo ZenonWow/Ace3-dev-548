@@ -1,26 +1,30 @@
-local _G, LIBSTUB_NAME, LIBSTUB_VERSION = _G, LIBSTUB_NAME or "LibStub", 3
-local LibStub = _G[LIBSTUB_NAME] or { libs = {}, minors = {}, minor = 0 }
+local _G, LIBSTUB_NAME, LIBSTUB_REVISION = _G, LIBSTUB_NAME or 'LibStub', 3
+local LibStub = _G[LIBSTUB_NAME] or { minor = 0, libs = {}, minors = {} }
+local LIB_NAME = "LibStub.NewLibrary"
 
 -- Check if current version of LibStub:NewLibrary() is obsolete.
-if  not LibStub.NewLibrary  or  LibStub.minor < LIBSTUB_VERSION and (LibStub.minorNewLibrary or 0) < LIBSTUB_VERSION  then
-	LibStub.minorNewLibrary = LIBSTUB_VERSION
+if  not LibStub.NewLibrary  or  LibStub.minor < LIBSTUB_REVISION and (LibStub.minors[LIB_NAME] or 0) < LIBSTUB_REVISION  then
+	LibStub.libs[LIB_NAME] = LibStub
+	LibStub.minors[LIB_NAME] = LIBSTUB_REVISION
 	_G[LIBSTUB_NAME] = LibStub
 
-	-- Upvalued Lua globals
-	local type,tonumber,strmatch = type,tonumber,string.match
+	-- Upvalued Lua globals:
 
-	function LibStub:NewLibrary(name, version, _, _, stackdepth)
-		if type(name)~='string' then  _G.error( "Usage: LibStub:NewLibrary(name, version):  `name` - string expected, got "..type(name) , (stackdepth or 1)+1 )  end
-		version = toversion(version)
-		if not version then  _G.error( "Usage: LibStub:NewLibrary(name, version):  `version` - expected a number or a string containing a number, got '"..tostring(version).."'." , (stackdepth or 1)+1 )  end
+	local type,tonumber,tostring,strmatch = type,tonumber,tostring,string.match
+	local function torevision(version)  return  tonumber(version)  or  type(version)=='string' and tonumber(strmatch(version, "%d+")) )  end
 
-		local oldversion = self.minors[name]
-		if oldversion and oldversion >= version then  return nil  end
+	function LibStub:NewLibrary(name, revision, _, _, stackdepth)
+		if type(name)~='string' then  _G.error( "Usage: LibStub:NewLibrary(name, revision):  `name` - string expected, got "..type(name) , (stackdepth or 1)+1 )  end
+		revision = torevision(revision)
+		if not revision then  _G.error( "Usage: LibStub:NewLibrary(name, revision):  `revision` - expected a number or a string containing a number, got '"..tostring(revision).."'." , (stackdepth or 1)+1 )  end
 
-		local lib =  self.libs[name]  or  self.stubs[name]  or  { name = name }
-		self.libs[name], self.minors[name], lib.version = lib, version, version
-		if not oldversion then  self:_OnCreateLibrary(lib)  end
-		return lib, oldversion
+		local oldrevision = self.minors[name]
+		if oldrevision and oldrevision >= revision then  return nil  end
+
+		local lib =  self.libs[name]  or  { name = name }
+		self.libs[name], self.minors[name], lib.revision = lib, revision, revision
+		if not oldrevision then  self:_PreCreateLibrary(lib, name)  end
+		return lib, oldrevision or 0
 	end
 
 end -- LibStub.NewLibrary

@@ -4,6 +4,8 @@
 <Script  file="LibStub.lua" />
 
 <!-- Extensions -->
+<Script  file="LibStub.ImportLibrary.lua" />
+<Script  file="LibStub.GetDependency.lua" />
 <Script  file="LibStub.Short.lua" />
 <Script  file="LibStub.SetEnv.lua" />
 

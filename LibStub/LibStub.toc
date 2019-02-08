@@ -19,9 +19,11 @@
 LibStub.lua
 
 # Extensions
+LibStub.ImportLibrary.lua
+LibStub.GetDependency.lua
 LibStub.Short.lua
 # LibStub.SetEnv.lua
 
 
-# LibStub.New.lua -- To include in small / one-file libraries only.
+# LibStub.NewLibrary.lua -- To include in small / one-file libraries only.
 

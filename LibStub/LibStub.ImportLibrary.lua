@@ -1,26 +1,24 @@
-local _G, LIBSTUB_NAME, LIBSTUB_VERSION = _G, LIBSTUB_NAME or "LibStub", 3
-local LibStub = _G[LIBSTUB_NAME] or { libs = {}, minors = {}, minor = 0 }
+local _G, LibStub, LIB_NAME, LIB_REVISION  =  _G, LibStub, "LibStub.ImportLibrary", 1
+assert(LibStub, "Include  LibStub  before LibStub.ImportLibrary.")
+LibStub.libs[LIB_NAME] = LibStub.libs[LIB_NAME] or LibStub
 
--- @requires LibStub.New.lua
--- Check if current version of LibStub:NewGlobalLibrary() is obsolete.
-if  not LibStub.NewGlobalLibrary  or  LibStub.minor < LIBSTUB_VERSION and (LibStub.minorNewGlobalLibrary or 0) < LIBSTUB_VERSION  then
-	LibStub.minorNewGlobalLibrary = LIBSTUB_VERSION
-	_G[LIBSTUB_NAME] = LibStub
+--[[
+local oldrevision  =  LibStub.minors[LIB_NAME] or 0
+if oldrevision < LIB_REVISION then
+--]]
 
-	function LibStub:NewGlobalLibrary(name, version, globalname, oldversion)
-		local global = _G[globalname or name]
-		if  type(global)=='table'  and  not self.libs[name]  then    -- Import if not in LibStub.
-			self.libs[name], self.minors[name] = global, toversion(oldversion or global.version) or 1
-		end
-		local lib, oldversion = self:NewLibrary(name, version, nil, nil, 2)
+if LibStub:NewLibrary(LIB_NAME, LIB_REVISION) then
 
-		if  lib  and  not global  then
-			_G[globalname or name] = lib
-		elseif  lib  and  global ~= lib  then
-			_G.geterrorhandler()( "Warning: LibStub:NewGlobalLibrary("..name..", "..version..", "..tostring(globalname).."):  _G."..tostring(globalname or name).." is different from the library in LibStub." , 2 )
-		end
-		return lib, oldversion
+	function LibStub:ImportLibrary(name, lib, revision, noversioncheck)
+		if not lib then  return  end
+		local oldrevision = self.minors[name]
+		if oldrevision and oldrevision >= revision and not noversioncheck then  return nil  end
+
+		self.libs[name], self.minors[name] = lib, revision
+		if not oldrevision then  self:_PreCreateLibrary(lib)  end
+		return lib, oldrevision or 0
 	end
 
-end -- LibStub.NewGlobalLibrary
+end
+
 
