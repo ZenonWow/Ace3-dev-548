@@ -33,7 +33,7 @@ lib.LOCALE_BIT_zhCN		= 4
 lib.LOCALE_BIT_zhTW		= 8
 lib.LOCALE_BIT_western	= 128
 
-local CallbackHandler = LibStub:GetLibrary("CallbackHandler-1.0")
+local CallbackHandler = LibStub("CallbackHandler-1.0", nil, MAJOR)
 
 lib.callbacks		= lib.callbacks			or CallbackHandler:New(lib)
 

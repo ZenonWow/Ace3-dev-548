@@ -23,7 +23,7 @@ if not AceConfigCmd then return end
 AceConfigCmd.commands = AceConfigCmd.commands or {}
 local commands = AceConfigCmd.commands
 
-local cfgreg = LibStub("AceConfigRegistry-3.0")
+local cfgreg = LibStub("AceConfigRegistry-3.0", nil, MAJOR)
 local AceConsole -- LoD
 local AceConsoleName = "AceConsole-3.0"
 
@@ -775,7 +775,7 @@ end
 -- @param appName The application name as given to `:RegisterOptionsTable()`
 function AceConfigCmd:CreateChatCommand(slashcmd, appName)
 	if not AceConsole then
-		AceConsole = LibStub(AceConsoleName)
+		AceConsole = LibStub(AceConsoleName, nil, MAJOR)
 	end
 	if AceConsole.RegisterChatCommand(self, slashcmd, function(input)
 				AceConfigCmd.HandleCommand(self, slashcmd, appName, input)	-- upgradable

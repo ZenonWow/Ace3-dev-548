@@ -392,7 +392,7 @@ local function initdb(sv, defaults, useDefaultProfile, olddb, parent)
 
 	if not rawget(db, "callbacks") then
 		-- try to load CallbackHandler-1.0 if it loaded after our library
-		if not CallbackHandler then CallbackHandler = LibStub:GetLibrary("CallbackHandler-1.0", true) end
+		if not CallbackHandler then CallbackHandler = LibStub("CallbackHandler-1.0", true) end
 		db.callbacks = CallbackHandler and CallbackHandler:New(db) or CallbackDummy
 	end
 

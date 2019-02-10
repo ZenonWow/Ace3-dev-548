@@ -17,8 +17,8 @@ local AceConfig = LibStub:NewLibrary(MAJOR, MINOR)
 
 if not AceConfig then return end
 
-local cfgreg = LibStub("AceConfigRegistry-3.0")
-local cfgcmd = LibStub("AceConfigCmd-3.0")
+local cfgreg = LibStub("AceConfigRegistry-3.0", nil, MAJOR)
+local cfgcmd = LibStub("AceConfigCmd-3.0", nil, MAJOR)
 --TODO: local cfgdlg = LibStub("AceConfigDialog-3.0", true)
 --TODO: local cfgdrp = LibStub("AceConfigDropdown-3.0", true)
 
