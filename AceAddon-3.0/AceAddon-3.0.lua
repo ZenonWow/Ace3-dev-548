@@ -33,11 +33,12 @@
 -- 12.1 moved safecall and AutoTablesMeta implementation to CallbackHandler.
 
 local MAJOR, MINOR = "AceAddon-3.0", 12.1
+local _G, LibStub = _G, LibStub
 local AceAddon, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not AceAddon then return end -- No Upgrade needed.
 
-local _G, LibStub = _G, LibStub
--- Export to global namespace for easy access
+
+-- Export to _G:  AceAddon
 _G.AceAddon = AceAddon
 
 -- Lua APIs
@@ -48,13 +49,24 @@ local loadstring, assert, error = loadstring, assert, error
 local setmetatable, getmetatable, rawset, rawget = setmetatable, getmetatable, rawset, rawget
 local xpcall = xpcall
 
+-- Global vars/functions that we don't upvalue since they might get hooked, or upgraded
+-- List them here for Mikk's FindGlobals script
+-- GLOBALS: LibStub, IsLoggedIn, geterrorhandler
 
+
+-- Export to LibCommon:  AutoTablesMeta, errorhandler, safecall/safecallDispatch
 local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
 
--- Import/export  LibCommon.AutoTablesMeta
 -- AutoTablesMeta: metatable that automatically creates empty inner tables when keys are first referenced.
 LibCommon.AutoTablesMeta = LibCommon.AutoTablesMeta or { __index = function(self, key)  if key ~= nil then  local v={} ; self[key]=v ; return v  end  end }
 local AutoTablesMeta = LibCommon.AutoTablesMeta
+
+-- Allow hooking _G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
+-- Avoiding tailcall: errorhandler() function would show up as "?" in stacktrace, making it harder to understand.
+LibCommon.errorhandler = LibCommon.errorhandler or  function(errorMessage)  return true and _G.geterrorhandler()(errorMessage)  end
+local errorhandler = LibCommon.errorhandler
+
+
 
 if  select(4, GetBuildInfo()) >= 80000  then
 
@@ -67,11 +79,6 @@ if  select(4, GetBuildInfo()) >= 80000  then
 
 elseif not LibCommon.safecallDispatch then
 
-	-- Allow hooking _G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
-	-- Avoiding tailcall: errorhandler() function would show up as "?" in stacktrace, making it harder to understand.
-	LibCommon.errorhandler = LibCommon.errorhandler or  function(errorMessage)  return true and _G.geterrorhandler()(errorMessage)  end
-	local errorhandler = LibCommon.errorhandler
-	
 	-- Export  LibCommon.safecallDispatch
 	local SafecallDispatchers = {}
 	function SafecallDispatchers:CreateDispatcher(argCount)
@@ -127,16 +134,17 @@ elseif not LibCommon.safecallDispatch then
 end -- LibCommon.safecallDispatch
 
 
+
+-- Choose the safecall implementation to use.
 local safecall = LibCommon.safecall or LibCommon.safecallDispatch
-
-
-
-
+-- Stack depth offset for error() calls.
 local errorOffset = 1
+-- Forward declaration
+local Embed
+-- Client mixins refactored to AceAddon.mixins
+-- local Enable, Disable, EnableModule, DisableModule, NewModule, GetModule, GetName, SetDefaultModuleState, SetDefaultModuleLibraries, SetEnabledState, SetDefaultModulePrototype
 
--- Global vars/functions that we don't upvalue since they might get hooked, or upgraded
--- List them here for Mikk's FindGlobals script
--- GLOBALS: LibStub, IsLoggedIn, geterrorhandler
+
 
 AceAddon.addons = AceAddon.addons or {}                                -- Registered addon objects:  name -> addon  map.
 AceAddon.mixins = AceAddon.mixins or {}                                -- Methods embedded in clients (registered addons).
@@ -147,14 +155,6 @@ AceAddon.initializequeue = AceAddon.initializequeue or {} -- addons that are new
 AceAddon.enablequeue = AceAddon.enablequeue or {} -- addons that are initialized and waiting to be enabled
 AceAddon.frame = AceAddon.frame or CreateFrame("Frame", "AceAddon30Frame") -- Our very own frame
 
-
-
--- Locals
---
--- local functions that will be implemented further down
-local Embed
--- Mixins:
--- local Enable, Disable, EnableModule, DisableModule, NewModule, GetModule, GetName, SetDefaultModuleState, SetDefaultModuleLibraries, SetEnabledState, SetDefaultModulePrototype
 
 
 --- Create a new AceAddon-3.0 addon.

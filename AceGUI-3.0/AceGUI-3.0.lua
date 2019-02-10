@@ -46,7 +46,14 @@ local UIParent = UIParent
 --local con = LibStub("AceConsole-3.0",true)
 
 
+-- Export to LibCommon:  errorhandler, safecall/safecallDispatch
 local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
+
+-- Allow hooking _G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
+-- Avoiding tailcall: errorhandler() function would show up as "?" in stacktrace, making it harder to understand.
+LibCommon.errorhandler = LibCommon.errorhandler or  function(errorMessage)  return true and _G.geterrorhandler()(errorMessage)  end
+local errorhandler = LibCommon.errorhandler
+
 
 if  select(4, GetBuildInfo()) >= 80000  then
 
@@ -59,11 +66,6 @@ if  select(4, GetBuildInfo()) >= 80000  then
 
 elseif not LibCommon.safecallDispatch then
 
-	-- Allow hooking _G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
-	-- Avoiding tailcall: errorhandler() function would show up as "?" in stacktrace, making it harder to understand.
-	LibCommon.errorhandler = LibCommon.errorhandler or  function(errorMessage)  return true and _G.geterrorhandler()(errorMessage)  end
-	local errorhandler = LibCommon.errorhandler
-	
 	-- Export  LibCommon.safecallDispatch
 	local SafecallDispatchers = {}
 	function SafecallDispatchers:CreateDispatcher(argCount)
@@ -119,10 +121,9 @@ elseif not LibCommon.safecallDispatch then
 end -- LibCommon.safecallDispatch
 
 
+
+-- Choose the safecall implementation to use.
 local safecall = LibCommon.safecall or LibCommon.safecallDispatch
-
-
-
 
 AceGUI.WidgetRegistry = AceGUI.WidgetRegistry or {}
 AceGUI.LayoutRegistry = AceGUI.LayoutRegistry or {}
