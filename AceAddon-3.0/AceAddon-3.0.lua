@@ -30,7 +30,7 @@
 -- @name AceAddon-3.0.lua
 -- @release $Id: AceAddon-3.0.lua 1084 2013-04-27 20:14:11Z nevcairiel $
 -- @patch $Id: AceAddon-3.0.lua 1084.1 2019-01 Mongusius, MINOR: 12 -> 12.1
--- 12.1 moved safecall and AutoCreateTablesMeta implementation to CallbackHandler.
+-- 12.1 moved safecall and AutoTablesMeta implementation to CallbackHandler.
 
 local MAJOR, MINOR = "AceAddon-3.0", 12.1
 local AceAddon, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
@@ -48,31 +48,113 @@ local loadstring, assert, error = loadstring, assert, error
 local setmetatable, getmetatable, rawset, rawget = setmetatable, getmetatable, rawset, rawget
 local xpcall = xpcall
 
--- Import  CallbackHandler.safecall  and  CallbackHandler.AutoCreateTablesMeta
-local CallbackHandler = LibStub:GetLibrary("CallbackHandler-1.0")
-local safecall = CallbackHandler.safecall
-assert(safecall, MAJOR.." requires up-to-date CallbackHandler-1.0 with safecall() implemented")
-local AutoCreateTablesMeta =  CallbackHandler.AutoCreateTablesMeta  or  { __index = function(self, key) self[key] = {} return self[key] end }
-local errorOffset = 1
 
+local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
+
+-- Import/export  LibCommon.AutoTablesMeta
+-- AutoTablesMeta: metatable that automatically creates empty inner tables when keys are first referenced.
+LibCommon.AutoTablesMeta = LibCommon.AutoTablesMeta or { __index = function(self, key)  if key ~= nil then  local v={} ; self[key]=v ; return v  end  end }
+local AutoTablesMeta = LibCommon.AutoTablesMeta
+
+if  select(4, GetBuildInfo()) >= 80000  then
+
+	----------------------------------------
+	--- Battle For Azeroth Addon Changes
+	-- https://us.battle.net/forums/en/wow/topic/20762318007
+	-- • xpcall now accepts arguments like pcall does
+	--
+	LibCommon.safecall = LibCommon.safecall or  function(unsafeFunc, ...)  return xpcall(unsafeFunc, errorhandler, ...)  end
+
+elseif not LibCommon.safecallDispatch then
+
+	-- Allow hooking _G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
+	-- Avoiding tailcall: errorhandler() function would show up as "?" in stacktrace, making it harder to understand.
+	LibCommon.errorhandler = LibCommon.errorhandler or  function(errorMessage)  return true and _G.geterrorhandler()(errorMessage)  end
+	local errorhandler = LibCommon.errorhandler
+	
+	-- Export  LibCommon.safecallDispatch
+	local SafecallDispatchers = {}
+	function SafecallDispatchers:CreateDispatcher(argCount)
+		local sourcecode = [===[
+			local xpcall, errorhandler = ...
+			local unsafeFuncUpvalue, ARGS
+			local function xpcallClosure()  return unsafeFuncUpvalue(ARGS)  end
+
+			local function dispatcher(unsafeFunc, ...)
+				 unsafeFuncUpvalue, ARGS = unsafeFunc, ...
+				 return xpcall(xpcallClosure, errorhandler)
+				 -- return xpcall(xpcallClosure, geterrorhandler())
+			end
+
+			return dispatcher
+		]===]
+
+		local ARGS = {}
+		for i = 1, argCount do ARGS[i] = "a"..i end
+		sourcecode = sourcecode:gsub("ARGS", tconcat(ARGS, ","))
+		local creator = assert(loadstring(sourcecode, "SafecallDispatchers[argCount="..argCount.."]"))
+		local dispatcher = creator(xpcall, errorhandler)
+		-- rawset(self, argCount, dispatcher)
+		self[argCount] = dispatcher
+		return dispatcher
+	end
+
+	setmetatable(SafecallDispatchers, { __index = SafecallDispatchers.CreateDispatcher })
+
+	SafecallDispatchers[0] = function (unsafeFunc)
+		-- Pass a delegating errorhandler to avoid _G.geterrorhandler() function call before any error actually happens.
+		return xpcall(unsafeFunc, errorhandler)
+		-- Or pass the registered errorhandler directly to avoid inserting an extra callstack frame.
+		-- The errorhandler is expected to be the same at both times: callbacks usually don't change it.
+		--return xpcall(unsafeFunc, _G.geterrorhandler())
+	end
+
+	function LibCommon.safecallDispatch(unsafeFunc, ...)
+		-- we check to see if unsafeFunc is actually a function here and don't error when it isn't
+		-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
+		-- present execution should continue without hinderance
+		if  not unsafeFunc  then  return  end
+		if  type(unsafeFunc)~='function'  then
+			_G.geterrorhandler()("Usage: safecall(unsafeFunc):  function expected, got "..type(unsafeFunc))
+			return
+		end
+
+		local dispatcher = SafecallDispatchers[select('#',...)]
+		-- Can't avoid tailcall without inefficiently packing and unpacking the multiple return values.
+		return dispatcher(unsafeFunc, ...)
+	end
+
+end -- LibCommon.safecallDispatch
+
+
+local safecall = LibCommon.safecall or LibCommon.safecallDispatch
+
+
+
+
+local errorOffset = 1
 
 -- Global vars/functions that we don't upvalue since they might get hooked, or upgraded
 -- List them here for Mikk's FindGlobals script
 -- GLOBALS: LibStub, IsLoggedIn, geterrorhandler
 
-AceAddon.frame = AceAddon.frame or CreateFrame("Frame", "AceAddon30Frame") -- Our very own frame
-AceAddon.addons = AceAddon.addons or {} -- addons in general
+AceAddon.addons = AceAddon.addons or {}                                -- Registered addon objects:  name -> addon  map.
+AceAddon.mixins = AceAddon.mixins or {}                                -- Methods embedded in clients (registered addons).
+local mixins    = AceAddon.mixins
+AceAddon.embeds = setmetatable(AceAddon.embeds or {}, AutoTablesMeta)  -- contains a list of libraries embedded in an addon
 AceAddon.statuses = AceAddon.statuses or {} -- statuses of addon.
 AceAddon.initializequeue = AceAddon.initializequeue or {} -- addons that are new and not initialized
 AceAddon.enablequeue = AceAddon.enablequeue or {} -- addons that are initialized and waiting to be enabled
-AceAddon.embeds = setmetatable(AceAddon.embeds or {}, AutoCreateTablesMeta) -- contains a list of libraries embedded in an addon
+AceAddon.frame = AceAddon.frame or CreateFrame("Frame", "AceAddon30Frame") -- Our very own frame
 
 
 
 -- Locals
 --
 -- local functions that will be implemented further down
-local Enable, Disable, EnableModule, DisableModule, Embed, NewModule, GetModule, GetName, SetDefaultModuleState, SetDefaultModuleLibraries, SetEnabledState, SetDefaultModulePrototype
+local Embed
+-- Mixins:
+-- local Enable, Disable, EnableModule, DisableModule, NewModule, GetModule, GetName, SetDefaultModuleState, SetDefaultModuleLibraries, SetEnabledState, SetDefaultModulePrototype
 
 
 --- Create a new AceAddon-3.0 addon.
@@ -98,10 +180,10 @@ function AceAddon:NewAddon(objectorname, ...)
 	end
 	
 	if type(name)~="string" then
-		error( format("Usage: AceAddon:NewAddon([addon,] name, [lib, lib, lib, ...]): 'name' - string expected got '%s'.", type(name)), 2 )
+		error( format("Usage: AceAddon:NewAddon([addon,] name, [lib, lib, lib, ...]): `name` - string expected got '%s'.", type(name)), 2 )
 	end
 	if self.addons[name] then 
-		error( format("Usage: AceAddon:NewAddon([addon,] name, [lib, lib, lib, ...]): 'name' - Addon '%s' already exists.", name), 2 )
+		error( format("Usage: AceAddon:NewAddon([addon,] name, [lib, lib, lib, ...]): `name` - Addon '%s' already exists.", name), 2 )
 	end
 	
 	addon.name = name
@@ -160,7 +242,7 @@ end
 -- MyAddon = LibStub("AceAddon-3.0"):GetAddon("MyAddon")
 function AceAddon:GetAddon(name, silent)
 	if not silent and not self.addons[name] then
-		error( format("Usage: GetAddon(name): 'name' - Cannot find an AceAddon '%s'.", tostring(name)), 2 )
+		error( format("Usage: GetAddon(name): `name` - Cannot find an AceAddon '%s'.", tostring(name)), 2 )
 	end
 	return self.addons[name]
 end
@@ -180,7 +262,7 @@ setmetatable(AceAddon, { __call = AceAddon.GetAddon, __index = AceAddon.addons }
 -- @param addonOrModule object to embed the libs in
 -- @param lib List of libraries to embed into the addon
 function AceAddon:EmbedLibraries(addonOrModule, ...)
-	for i=1,select("#", ... ) do
+	for i = 1,select('#',...) do
 		local libname = select(i, ...)
 		self:EmbedLibrary(addonOrModule, libname, false, errorOffset+1)
 	end
@@ -201,13 +283,13 @@ end
 function AceAddon:EmbedLibrary(addonOrModule, libname, silent, offset)
 	local lib = LibStub:GetLibrary(libname, true)
 	if not lib and not silent then
-		error( format("Usage: EmbedLibrary(addonOrModule, libname, silent, offset): 'libname' - Cannot find a library instance of %q.", tostring(libname)), 1 + (offset or 1) )
+		error( format("Usage: EmbedLibrary(addonOrModule, libname, silent, offset): `libname` - Cannot find a library instance of %q.", tostring(libname)), (offset or 1)+1 )
 	elseif lib and type(lib.Embed) == "function" then
 		lib:Embed(addonOrModule)
 		tinsert(self.embeds[addonOrModule], libname)
 		return true
 	elseif lib then
-		error( format("Usage: EmbedLibrary(addonOrModule, libname, silent, offset): 'libname' - Library '%s' is not Embed capable", libname), 1 + (offset or 1) )
+		error( format("Usage: EmbedLibrary(addonOrModule, libname, silent, offset): `libname` - Library '%s' is not Embed capable", libname), (offset or 1)+1 )
 	end
 end
 
@@ -223,9 +305,9 @@ end
 -- MyAddon = LibStub("AceAddon-3.0"):GetAddon("MyAddon")
 -- -- Get the Module
 -- MyModule = MyAddon:GetModule("MyModule")
-function GetModule(addon, name, silent)
+function mixins:GetModule(addon, name, silent)
 	if not addon.modules[name] and not silent then
-		error( format("Usage: GetModule(name, silent): 'name' - Cannot find module '%s'.", tostring(name)), 2 )
+		error( format("Usage: MyAddon:GetModule(name, silent): `name` - Cannot find module '%s'.", tostring(name)), 2 )
 	end
 	return addon.modules[name]
 end
@@ -250,13 +332,15 @@ local function ReturnTrue() return true end
 -- -- Create a module with a prototype
 -- local prototype = { OnEnable = function(module) print("OnEnable called!") end }
 -- MyModule = MyAddon:NewModule("MyModule", prototype, "AceEvent-3.0", "AceHook-3.0")
-function NewModule(addon, moduleName, ...)
+function mixins:NewModule(addon, moduleName, ...)
 	local prototype = ...
 	local prototypeSet =  1 <= select('#',...)  and  type(prototype) ~= 'string'
-	if type(moduleName) ~= 'string' then error( format("Usage: MyAddon:NewModule(moduleName, [prototype, [lib, lib, lib, ...]): 'moduleName' - string expected got '%s'.", type(moduleName)), 2 ) end
-	if prototypeSet and type(prototype) ~= 'table' and type(prototype) ~= 'function' then error( format("Usage: MyAddon:NewModule(moduleName, [prototype, [lib, lib, lib, ...]): 'prototype' - table/function/nil (prototype), string (lib) expected got '%s'.", type(prototype)), 2 ) end
+	if type(moduleName)~='string' then  error( "Usage: MyAddon:NewModule(moduleName, [prototype, [lib, lib, lib, ...]): `moduleName` - string expected got, "..type(moduleName) , 2 )  end
+	if prototypeSet and not isanytype(prototype, 'table', 'function') then
+		error( "Usage: MyAddon:NewModule(moduleName, [prototype, [lib, lib, lib, ...]): `prototype` - table/function/nil (prototype), string (lib) expected, got "..type(prototype) , 2 )
+	end
 	
-	if addon.modules[moduleName] then error( format("Usage: NewModule(moduleName, [prototype, [lib, lib, lib, ...]): 'moduleName' - Module '%s' already exists.", moduleName), 2 ) end
+	if addon.modules[moduleName] then  error( 'Usage: MyAddon:NewModule(moduleName, [prototype, [lib, lib, lib, ...]):  Module "'..moduleName..'" already exists.', moduleName), 2 )  end
 	
 	local module = { IsModule = ReturnTrue, moduleName = moduleName }
 	-- SetEnabledState(module, addon.defaultModuleState)
@@ -278,10 +362,10 @@ function NewModule(addon, moduleName, ...)
 	
 	-- if type(prototype) == "table" then
 	if prototype ~= nil then
-		-- mt.__index == nil after InitObject()
-		local mt = getmetatable(module)
-		mt.__index = prototype
-		setmetatable(module, mt)  -- More of a Base class type feel.
+		-- meta.__index == nil after InitObject()
+		local meta = getmetatable(module)
+		meta.__index = prototype
+		-- setmetatable(module, meta)  -- More of a Base class type feel.
 	end
 	
 	safecall(addon.OnModuleCreated, addon, module) -- Was in Ace2 and I think it could be a cool thing to have handy.
@@ -297,7 +381,7 @@ end
 -- @usage 
 -- print(MyAddon:GetName())
 -- -- prints "MyAddon"
-function GetName(addonOrModule)
+function mixins:GetName(addonOrModule)
 	return addonOrModule.moduleName or addonOrModule.name
 end
 
@@ -323,7 +407,7 @@ end
 -- MyAddon = LibStub("AceAddon-3.0"):GetAddon("MyAddon")
 -- MyModule = MyAddon:GetModule("MyModule")
 -- MyModule:Enable()
-function Enable(addonOrModule)
+function mixins:Enable(addonOrModule)
 	addonOrModule:SetEnabledState(true)
 
 	-- nevcairiel 2013-04-27: don't enable an addon/module if its queued for init still
@@ -343,7 +427,7 @@ end
 -- -- Disable MyAddon
 -- MyAddon = LibStub("AceAddon-3.0"):GetAddon("MyAddon")
 -- MyAddon:Disable()
-function Disable(addonOrModule)
+function mixins:Disable(addonOrModule)
 	addonOrModule:SetEnabledState(false)
 	return AceAddon:DisableAddon(addonOrModule)
 end
@@ -361,7 +445,7 @@ end
 -- -- Enable MyModule using the short-hand
 -- MyAddon = LibStub("AceAddon-3.0"):GetAddon("MyAddon")
 -- MyAddon:EnableModule("MyModule")
-function EnableModule(addon, name)
+function mixins:EnableModule(addon, name)
 	local module = addon:GetModule( name )
 	return module:Enable()
 end
@@ -379,7 +463,7 @@ end
 -- -- Disable MyModule using the short-hand
 -- MyAddon = LibStub("AceAddon-3.0"):GetAddon("MyAddon")
 -- MyAddon:DisableModule("MyModule")
-function DisableModule(addon, name)
+function mixins:DisableModule(addon, name)
 	local module = addon:GetModule( name )
 	return module:Disable()
 end
@@ -396,7 +480,7 @@ end
 -- MyAddon:SetDefaultModuleLibraries("AceEvent-3.0")
 -- -- Create a module
 -- MyModule = MyAddon:NewModule("MyModule")
-function SetDefaultModuleLibraries(addon, ...)
+function mixins:SetDefaultModuleLibraries(addon, ...)
 	if next(addon.modules) then
 		error("Usage: SetDefaultModuleLibraries(...): cannot change the module defaults after a module has been registered.", 2)
 	end
@@ -416,7 +500,7 @@ end
 -- -- Create a module and explicilty enable it
 -- MyModule = MyAddon:NewModule("MyModule")
 -- MyModule:Enable()
-function SetDefaultModuleState(addon, state)
+function mixins:SetDefaultModuleState(addon, state)
 	if next(addon.modules) then
 		error("Usage: SetDefaultModuleState(state): cannot change the module defaults after a module has been registered.", 2)
 	end
@@ -438,12 +522,12 @@ end
 -- MyModule:Enable()
 -- -- should print "OnEnable called!" now
 -- @see NewModule
-function SetDefaultModulePrototype(addon, prototype)
+function mixins:SetDefaultModulePrototype(addon, prototype)
 	if next(addon.modules) then
 		error("Usage: SetDefaultModulePrototype(prototype): cannot change the module defaults after a module has been registered.", 2)
 	end
 	if prototype and type(prototype) ~= 'table' and type(prototype) ~= 'function' then
-		error( format("Usage: SetDefaultModulePrototype(prototype): 'prototype' - table expected got '%s'.", type(prototype)), 2 )
+		error( format("Usage: SetDefaultModulePrototype(prototype): `prototype` - table expected got '%s'.", type(prototype)), 2 )
 	end
 	addon.defaultModulePrototype = prototype
 end
@@ -453,7 +537,7 @@ end
 -- @name //addon//:SetEnabledState
 -- @paramsig state
 -- @param state the state of an addon or module  (enabled=true, disabled=false)
-function SetEnabledState(addonOrModule, state)
+function mixins:SetEnabledState(addonOrModule, state)
 	addonOrModule.enabledState = state
 end
 
@@ -466,12 +550,12 @@ end
 -- for name, module in MyAddon:IterateModules() do
 --    module:Enable()
 -- end
-local function IterateModules(addon) return pairs(addon.modules) end
+function mixins:IterateModules(addon) return pairs(addon.modules) end
 
 -- Returns an iterator of all embeds in the addon
 -- @name //addon//:IterateEmbeds
 -- @paramsig 
-local function IterateEmbeds(addonOrModule) return pairs(AceAddon.embeds[addonOrModule]) end
+function mixins:IterateEmbeds(addonOrModule) return pairs(AceAddon.embeds[addonOrModule]) end
 
 --- Query the enabledState of an addon.
 -- @name //addon//:IsEnabled
@@ -480,23 +564,16 @@ local function IterateEmbeds(addonOrModule) return pairs(AceAddon.embeds[addonOr
 -- if MyAddon:IsEnabled() then
 --     MyAddon:Disable()
 -- end
-local function IsEnabled(addonOrModule) return addonOrModule.enabledState end
-local mixins = {
-	NewModule = NewModule,
-	GetModule = GetModule,
-	Enable = Enable,
-	Disable = Disable,
-	EnableModule = EnableModule,
-	DisableModule = DisableModule,
-	IsEnabled = IsEnabled,
-	SetDefaultModuleLibraries = SetDefaultModuleLibraries,
-	SetDefaultModuleState = SetDefaultModuleState,
-	SetDefaultModulePrototype = SetDefaultModulePrototype,
-	SetEnabledState = SetEnabledState,
-	IterateModules = IterateModules,
-	IterateEmbeds = IterateEmbeds,
-	GetName = GetName,
-}
+function mixins:IsEnabled(addonOrModule) return addonOrModule.enabledState end
+
+function mixins:SetAddonEnv(addonOrModule, addonName, env)
+	addonOrModule.folderName = addonName
+	addonOrModule._ENV = env
+	return addonOrModule    -- for method chaining
+end
+
+
+
 local pmixins = {
 	defaultModuleState = true,
 	enabledState = true,
@@ -550,15 +627,17 @@ end
 -- @param addon addon object to enable
 function AceAddon:EnableAddon(addon)
 	if type(addon) == "string" then addon = AceAddon:GetAddon(addon) end
-	if self.statuses[addon.name] or not addon.enabledState then return false end
+	local addonName = addon.name
+	if  DEBUG and DEBUG[addonName]  then  print( "AceAddon:EnableAddon("..addonName.."): status="..tostring(self.statuses[addonName]).." enabledState="..tostring(addon.enabledState) )  end
+	if self.statuses[addonName] or not addon.enabledState then return false end
 	
 	-- set the statuses first, before calling the OnEnable. this allows for Disabling of the addon in OnEnable.
-	self.statuses[addon.name] = true
+	self.statuses[addonName] = true
 	
 	safecall(addon.OnEnable, addon)
 	
 	-- make sure we're still enabled before continueing
-	if self.statuses[addon.name] then
+	if self.statuses[addonName] then
 		local embeds = self.embeds[addon]
 		for i = 1, #embeds do
 			local lib = LibStub:GetLibrary(embeds[i], true)
@@ -571,7 +650,7 @@ function AceAddon:EnableAddon(addon)
 			self:EnableAddon(modules[i])
 		end
 	end
-	return self.statuses[addon.name] -- return true if we're disabled
+	return self.statuses[addonName] -- return false if we're disabled
 end
 
 -- - Disable the addon
@@ -585,15 +664,16 @@ end
 -- @param addon addon object to enable
 function AceAddon:DisableAddon(addon)
 	if type(addon) == "string" then addon = AceAddon:GetAddon(addon) end
-	if not self.statuses[addon.name] then return false end
+	local addonName = addon.name
+	if not self.statuses[addonName] then return false end
 	
 	-- set statuses first before calling OnDisable, this allows for aborting the disable in OnDisable.
-	self.statuses[addon.name] = false
+	self.statuses[addonName] = false
 	
 	safecall( addon.OnDisable, addon )
 	
 	-- make sure we're still disabling...
-	if not self.statuses[addon.name] then 
+	if not self.statuses[addonName] then 
 		local embeds = self.embeds[addon]
 		for i = 1, #embeds do
 			local lib = LibStub:GetLibrary(embeds[i], true)
@@ -606,7 +686,7 @@ function AceAddon:DisableAddon(addon)
 		end
 	end
 	
-	return not self.statuses[addon.name] -- return true if we're disabled
+	return not self.statuses[addonName] -- return true if we're disabled
 end
 
 --- Get an iterator over all registered addons.
@@ -635,9 +715,18 @@ function AceAddon:IterateModulesOfAddon(addon) return pairs(addon.modules) end
 
 -- Event Handling
 local function OnEvent(frame, event, addonName)
-	-- 2011-08-17 nevcairiel - ignore the load event of Blizzard_DebugTools, so a potential startup error isn't swallowed up
-	if (event == "ADDON_LOADED"  and addonName ~= "Blizzard_DebugTools") or event == "PLAYER_LOGIN" then
-		-- if a addon loads another addon, recursion could happen here, so we need to validate the table on every iteration
+	if  event == "ADDON_LOADED"  then
+		-- 2011-08-17 nevcairiel - ignore the load event of Blizzard_DebugTools, so a potential startup error isn't swallowed up
+		-- if  addonName == "Blizzard_DebugTools"  then  return  end
+		if  addonName:sub(1,9) == "Blizzard_"  then  return  end
+		-- If an addon loads another addon, recursion could happen here, so we need to validate the table on every iteration.
+		-- If another addon is loaded in main chunk (not from an event handler) then  initializequeue = { NewAddon()s before LoadAddOn(), otheraddon's NewAddon()s }
+		-- addonName == 'otheraddon' as the other addon finished loading before the first one.
+		-- Now initializequeue will initialize the first addon too, although its SavedVariables are not loaded yet.
+		-- This could be detected only by rawhooking LoadAddOn(). There is no issue with LoadAddOn() in OnInitialize().
+	end
+	
+	if  event == "ADDON_LOADED"  or  event == "PLAYER_LOGIN"  then
 		while(#AceAddon.initializequeue > 0) do
 			local addon = tremove(AceAddon.initializequeue, 1)
 			-- this might be an issue with recursion - TODO: validate
@@ -645,27 +734,21 @@ local function OnEvent(frame, event, addonName)
 			if event == "ADDON_LOADED" then
 				-- addon.folderName == addon.baseName == addonName expected
 				if  addonName ~= addon.folderName  and   addon.folderName  then
-					print(event.."("..addonName.."): addon.folderName="..addon.folderName.." addon.name="..addon.name)
+					print(event.."("..addonName.."): addon.folderName="..addon.folderName)
 				end
 				addon.baseName = addonName
 			end
 			
 			AceAddon:InitializeAddon(addon)
-			if  #AceAddon.enablequeue == 0  then  frame:Show()  end
+			
+			if  _G.IsLoggedIn()  and  #AceAddon.enablequeue == 0  then  frame:Show()  end
 			tinsert(AceAddon.enablequeue, addon)
 		end
-		
-		-- Start processing enablequeue.
-		if  event == "PLAYER_LOGIN"  then  frame:Show()  end
-		--[[
-		if _G.IsLoggedIn() then
-			while(#AceAddon.enablequeue > 0) do
-				local addon = tremove(AceAddon.enablequeue, 1)
-				AceAddon:EnableAddon(addon)
-			end
-		end
-		--]]
 	end
+	
+	-- Start processing enablequeue.
+	if  event == "PLAYER_LOGIN"  then  frame:Show()  end
+	
 end
 
 local GetTime, debugprofilestop, strjoin = GetTime, debugprofilestop, strjoin
@@ -681,7 +764,7 @@ local function OnUpdate(frame, elapsed)
 	
 	local timeLog = AceAddon.addonEnableTimeLog
 	local times = AceAddon.addonEnableTimes
-	local frameStart = debugprofilestop()/1000
+	local frameStart = debugprofilestop()
 	local thisRound = {}
 	
 	if  not frame.batchStart  then
@@ -691,23 +774,27 @@ local function OnUpdate(frame, elapsed)
 	end
 	
 	while  0 < #AceAddon.enablequeue  do
-		local before = debugprofilestop()/1000
+		local before = debugprofilestop()
 		local addon = tremove(AceAddon.enablequeue, 1)
-		thisRound[#thisRound+1] = addon.name
+		local addonName = addon.name
+		thisRound[#thisRound+1] = addonName
 		AceAddon:EnableAddon(addon)
 		
-		local after = debugprofilestop()/1000
-		if  timeLog  then  timeLog[#timeLog+1] = format("%s: %.3f", addon.name, after - before)  end
-		if  times  then  times[addon.name] = after - before  end
+		local after = debugprofilestop()
+		if  timeLog  then  timeLog[#timeLog+1] = format("%s: %.1f ms", addonName, after - before)  end
+		if  times  then  times[addonName] = after - before  end
 		
-		if  after - frameStart > frame.minElapsed  then
-			print(format( "AceAddon enabled addons in one frame, %.3f sec:  %s", after - frameStart, strjoin(",", unpack(thisRound)) ))
+		-- 30 fps = 33.3 ms/f
+		local timeLimit = 0.5  -- milisec
+		-- local timeLimit = frame.minElapsed/32
+		if  after - frameStart > timeLimit  then
+			print(format( "AceAddon enabled addons in one frame, %.1f ms:  %s", after - frameStart, strjoin(",", unpack(thisRound)) ))
 			return
 		end
 	end
 	
   -- Stop receiving OnUpdate.
-	local msg = format("AceAddon.enablequeue finished at %.3f after %.3f seconds, %d frames", GetTime(), debugprofilestop()/1000 - frame.batchStart, frame.frameCount - frame.batchFrame)
+	local msg = format("AceAddon.enablequeue finished at %.3f after %.3f seconds, %d frames", GetTime(), debugprofilestop()/1000 - frame.batchStart/1000, frame.frameCount - frame.batchFrame)
 	if  timeLog  then  timeLog[#timeLog+1] = msg  end
 	print(msg)
 	frame:Hide()
@@ -734,3 +821,5 @@ if oldminor and oldminor < 10 then
 		end
 	end
 end
+
+

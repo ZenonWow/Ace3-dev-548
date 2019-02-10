@@ -25,9 +25,8 @@
 -- @class file
 -- @name AceGUI-3.0
 -- @release $Id: AceGUI-3.0.lua 1102 2013-10-25 14:15:23Z nevcairiel $
-local ACEGUI_MAJOR, ACEGUI_MINOR = "AceGUI-3.0", 34
-local AceGUI, oldminor = LibStub:NewLibrary(ACEGUI_MAJOR, ACEGUI_MINOR)
-
+local MAJOR, MINOR = "AceGUI-3.0", 34
+local AceGUI, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not AceGUI then return end -- No upgrade needed
 
 -- Lua APIs
@@ -46,6 +45,85 @@ local UIParent = UIParent
 
 --local con = LibStub("AceConsole-3.0",true)
 
+
+local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
+
+if  select(4, GetBuildInfo()) >= 80000  then
+
+	----------------------------------------
+	--- Battle For Azeroth Addon Changes
+	-- https://us.battle.net/forums/en/wow/topic/20762318007
+	-- • xpcall now accepts arguments like pcall does
+	--
+	LibCommon.safecall = LibCommon.safecall or  function(unsafeFunc, ...)  return xpcall(unsafeFunc, errorhandler, ...)  end
+
+elseif not LibCommon.safecallDispatch then
+
+	-- Allow hooking _G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
+	-- Avoiding tailcall: errorhandler() function would show up as "?" in stacktrace, making it harder to understand.
+	LibCommon.errorhandler = LibCommon.errorhandler or  function(errorMessage)  return true and _G.geterrorhandler()(errorMessage)  end
+	local errorhandler = LibCommon.errorhandler
+	
+	-- Export  LibCommon.safecallDispatch
+	local SafecallDispatchers = {}
+	function SafecallDispatchers:CreateDispatcher(argCount)
+		local sourcecode = [===[
+			local xpcall, errorhandler = ...
+			local unsafeFuncUpvalue, ARGS
+			local function xpcallClosure()  return unsafeFuncUpvalue(ARGS)  end
+
+			local function dispatcher(unsafeFunc, ...)
+				 unsafeFuncUpvalue, ARGS = unsafeFunc, ...
+				 return xpcall(xpcallClosure, errorhandler)
+				 -- return xpcall(xpcallClosure, geterrorhandler())
+			end
+
+			return dispatcher
+		]===]
+
+		local ARGS = {}
+		for i = 1, argCount do ARGS[i] = "a"..i end
+		sourcecode = sourcecode:gsub("ARGS", tconcat(ARGS, ","))
+		local creator = assert(loadstring(sourcecode, "SafecallDispatchers[argCount="..argCount.."]"))
+		local dispatcher = creator(xpcall, errorhandler)
+		-- rawset(self, argCount, dispatcher)
+		self[argCount] = dispatcher
+		return dispatcher
+	end
+
+	setmetatable(SafecallDispatchers, { __index = SafecallDispatchers.CreateDispatcher })
+
+	SafecallDispatchers[0] = function (unsafeFunc)
+		-- Pass a delegating errorhandler to avoid _G.geterrorhandler() function call before any error actually happens.
+		return xpcall(unsafeFunc, errorhandler)
+		-- Or pass the registered errorhandler directly to avoid inserting an extra callstack frame.
+		-- The errorhandler is expected to be the same at both times: callbacks usually don't change it.
+		--return xpcall(unsafeFunc, _G.geterrorhandler())
+	end
+
+	function LibCommon.safecallDispatch(unsafeFunc, ...)
+		-- we check to see if unsafeFunc is actually a function here and don't error when it isn't
+		-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
+		-- present execution should continue without hinderance
+		if  not unsafeFunc  then  return  end
+		if  type(unsafeFunc)~='function'  then
+			_G.geterrorhandler()("Usage: safecall(unsafeFunc):  function expected, got "..type(unsafeFunc))
+			return
+		end
+
+		local dispatcher = SafecallDispatchers[select('#',...)]
+		-- Can't avoid tailcall without inefficiently packing and unpacking the multiple return values.
+		return dispatcher(unsafeFunc, ...)
+	end
+
+end -- LibCommon.safecallDispatch
+
+
+local safecall = LibCommon.safecall or LibCommon.safecallDispatch
+
+
+
+
 AceGUI.WidgetRegistry = AceGUI.WidgetRegistry or {}
 AceGUI.LayoutRegistry = AceGUI.LayoutRegistry or {}
 AceGUI.WidgetBase = AceGUI.WidgetBase or {}
@@ -56,50 +134,6 @@ AceGUI.WidgetVersions = AceGUI.WidgetVersions or {}
 local WidgetRegistry = AceGUI.WidgetRegistry
 local LayoutRegistry = AceGUI.LayoutRegistry
 local WidgetVersions = AceGUI.WidgetVersions
-
---[[
-	 xpcall safecall implementation
-]]
-local xpcall = xpcall
-
-local function errorhandler(err)
-	return geterrorhandler()(err)
-end
-
-local function CreateDispatcher(argCount)
-	local code = [[
-		local xpcall, eh = ...
-		local method, ARGS
-		local function call() return method(ARGS) end
-	
-		local function dispatch(func, ...)
-			method = func
-			if not method then return end
-			ARGS = ...
-			return xpcall(call, eh)
-		end
-	
-		return dispatch
-	]]
-	
-	local ARGS = {}
-	for i = 1, argCount do ARGS[i] = "arg"..i end
-	code = code:gsub("ARGS", tconcat(ARGS, ", "))
-	return assert(loadstring(code, "safecall Dispatcher["..argCount.."]"))(xpcall, errorhandler)
-end
-
-local Dispatchers = setmetatable({}, {__index=function(self, argCount)
-	local dispatcher = CreateDispatcher(argCount)
-	rawset(self, argCount, dispatcher)
-	return dispatcher
-end})
-Dispatchers[0] = function(func)
-	return xpcall(func, errorhandler)
-end
- 
-local function safecall(func, ...)
-	return Dispatchers[select("#", ...)](func, ...)
-end
 
 -- Recycling functions
 local newWidget, delWidget
