@@ -22,13 +22,17 @@ local gui = LibStub("AceGUI-3.0", nil, MAJOR)
 local reg = LibStub("AceConfigRegistry-3.0", nil, MAJOR)
 
 
--- Export to LibCommon:  errorhandler, safecall/safecallDispatch
+-- Export to LibCommon:  errorhandler, softassert, safecall/safecallDispatch
 local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
 
 -- Allow hooking _G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
 -- Avoiding tailcall: errorhandler() function would show up as "?" in stacktrace, making it harder to understand.
 LibCommon.errorhandler = LibCommon.errorhandler or  function(errorMessage)  return true and _G.geterrorhandler()(errorMessage)  end
 local errorhandler = LibCommon.errorhandler
+
+-- softassert(condition, message):  Report error without halting.
+LibCommon.softassert = LibCommon.softassert or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+local softassert = LibCommon.softassert
 
 
 if  select(4, GetBuildInfo()) >= 80000  then
@@ -85,7 +89,7 @@ elseif not LibCommon.safecallDispatch then
 		-- present execution should continue without hinderance
 		if  not unsafeFunc  then  return  end
 		if  type(unsafeFunc)~='function'  then
-			_G.geterrorhandler()("Usage: safecall(unsafeFunc):  function expected, got "..type(unsafeFunc))
+			LibCommon.softassert(false, "Usage: safecall(unsafeFunc):  function expected, got "..type(unsafeFunc))
 			return
 		end
 
@@ -1159,7 +1163,7 @@ local function FeedOptions(appName, options,container,rootframe,path,group,inlin
 					local controlType = v.dialogControl or v.control or (v.multiline and "MultiLineEditBox") or "EditBox"
 					control = gui:Create(controlType)
 					if not control then
-						geterrorhandler()(("Invalid Custom Control Type - %s"):format(tostring(controlType)))
+						softassert(false, "Invalid Custom Control Type - "..tostring(controlType))
 						control = gui:Create(v.multiline and "MultiLineEditBox" or "EditBox")
 					end
 					
@@ -1255,12 +1259,12 @@ local function FeedOptions(appName, options,container,rootframe,path,group,inlin
 						local controlType = v.dialogControl or v.control or "Dropdown"
 						control = gui:Create(controlType)
 						if not control then
-							geterrorhandler()(("Invalid Custom Control Type - %s"):format(tostring(controlType)))
+							softassert(false, "Invalid Custom Control Type - "..tostring(controlType))
 							control = gui:Create("Dropdown")
 						end
 						local itemType = v.itemControl
 						if itemType and not gui:GetWidgetVersion(itemType) then
-							geterrorhandler()(("Invalid Custom Item Type - %s"):format(tostring(itemType)))
+							softassert(false, "Invalid Custom Item Type - "..tostring(itemType))
 							itemType = nil
 						end
 						control:SetLabel(name)
@@ -1290,7 +1294,7 @@ local function FeedOptions(appName, options,container,rootframe,path,group,inlin
 					if controlType then
 						control = gui:Create(controlType)
 						if not control then
-							geterrorhandler()(("Invalid Custom Control Type - %s"):format(tostring(controlType)))
+							softassert(false, "Invalid Custom Control Type - "..tostring(controlType))
 						end
 					end
 					if control then

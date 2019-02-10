@@ -6,6 +6,7 @@ if not LibStub:NewLibrary(LIB_NAME, LIB_REVISION) then  return  end
 
 local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
 LibCommon.istable   = LibCommon.istable   or function(value)  return  type(value)=='table'    and value  end
+LibCommon.softassert = LibCommon.softassert or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
 
 
 -----------------------------------------------------
@@ -21,7 +22,7 @@ function LibDataBroker:RemoveDataObject(dataobj)
 	elseif dataobj then  name =  self.namestorage[dataobj]  or  dataobj.name
 	end
 	if not dataobj then
-		_G.geterrorhandler()("Warn: LibDataBroker:RemoveDataObject(dataobj):  passed value '"..tostring(dataobj).."' is not a registered dataobject.")
+		LibCommon.softassert(false, "Warn: LibDataBroker:RemoveDataObject(dataobj):  '"..tostring(dataobj).."' is not a registered dataobject.")
 		return false
 	end
 

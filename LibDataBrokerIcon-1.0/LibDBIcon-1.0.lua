@@ -42,8 +42,12 @@ lib.disabled = lib.disabled or nil
 lib.objects = lib.objects or {}
 lib.callbackRegistered = lib.callbackRegistered or nil
 lib.callbacks = lib.callbacks or LibStub("CallbackHandler-1.0"):New(lib)
-local safecall = assert(LibCommon.safecall, "LibMinimapIcon(LibDBIcon) requires LibCommon.safecall")
 lib.notCreated = lib.notCreated or {}
+
+local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
+LibCommon.softassert = LibCommon.softassert or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+local safecall = assert(LibCommon.safecall, "LibMinimapIcon(LibDBIcon) requires LibCommon.safecall")
+
 
 function lib:IconCallback(event, name, key, value, dataobj)
 	local button = lib.objects[name]
@@ -290,7 +294,7 @@ end
 function lib:Register(name, dataobj, db)
 	if not dataobj.icon then  error("LibMinimapIcon:  LibDBIcon:Register():  Can't register dataobject '"..name.."' without .icon set.")  end
 	if lib.objects[name] or lib.notCreated[name] then
-		_G.geterrorhandler()("LibMinimapIcon:  LibDBIcon:Register():  dataobject '"..name.."' already registered.")
+		LibCommon.softassert(false, "LibMinimapIcon:  LibDBIcon:Register():  dataobject '"..name.."' already registered.")
 		return false
 	end
 

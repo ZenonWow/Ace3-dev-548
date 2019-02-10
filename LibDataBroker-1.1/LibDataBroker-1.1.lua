@@ -20,14 +20,12 @@ local format = string.format
 -- Recurring functions
 local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
 
-LibCommon.assertf = LibCommon.assertf  or function(ok, messageFormat, ...)  if not ok then  error( format(messageFormat, ...) )  end  end
-LibCommon.asserttype = LibCommon.asserttype  or function(value, typename, message)
-	if type(value)~=typename then  error( (message or "")..typename.." expected, got "..type(dataobj) )  end
+LibCommon.softassert = LibCommon.softassert or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+LibCommon.assertf = LibCommon.assertf or  function(ok, messageFormat, ...)  if not ok then  error( format(messageFormat, ...) )  end  end
+LibCommon.asserttype = LibCommon.asserttype  or function(value, typename, messagePrefix)
+	if type(value)~=typename then  error( (messagePrefix or "")..typename.." expected, got "..type(value) )  end
 end
-LibCommon.softassert = LibCommon.softassert  or function(ok, message)
-	return  ok,  not ok  and  (_G.geterrorhandler()(message) or message)  or  nil
-end
-local assertf,asserttype,softassert = LibCommon.assertf,LibCommon.asserttype,LibCommon.softassert
+local softassert,assertf,asserttype = LibCommon.softassert,LibCommon.assertf,LibCommon.asserttype
 
 
 
@@ -232,7 +230,7 @@ if LDB.domt then
 	local namestorage = LDB.namestorage
 
 	for dataobj,attributes in pairs(LDB.attributestorage) do
-		local name = softassert(namestorage[dataobj]) or "?"
+		local name = softassert(namestorage[dataobj], "Missing name of dataobj.") or "?"
 		-- Set name without triggering AttributeChanged event. MINOR = 4 did not set it.
 		attributes.name = attributes.name or name
 		local metatable = LDB:MakeProxyMetaTable(attributes, name)
