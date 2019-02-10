@@ -24,34 +24,38 @@
 --
 
 local CTL_VERSION = 23
+local _G, LibStub, ChatThrottleLib = _G, LibStub, _G.ChatThrottleLib  -- in case some addon does "local ChatThrottleLib" above us and we're copypasted (AceComm-2, sigh)
 
-local _G = _G
+if ChatThrottleLib then
+	if LibStub and LibStub.ImportLibrary then
+		LibStub:ImportLibrary('ChatThrottleLib', ChatThrottleLib.version, ChatThrottleLib)
+	end
 
-if _G.ChatThrottleLib then
-	if _G.ChatThrottleLib.version >= CTL_VERSION then
+	if ChatThrottleLib.version >= CTL_VERSION then
 		-- There's already a newer (or same) version loaded. Buh-bye.
 		return
-	elseif not _G.ChatThrottleLib.securelyHooked then
+	elseif not ChatThrottleLib.securelyHooked then
 		print("ChatThrottleLib: Warning: There's an ANCIENT ChatThrottleLib.lua (pre-wow 2.0, <v16) in an addon somewhere. Get the addon updated or copy in a newer ChatThrottleLib.lua (>=v16) in it!")
 		-- ATTEMPT to unhook; this'll behave badly if someone else has hooked...
 		-- ... and if someone has securehooked, they can kiss that goodbye too... >.<
-		_G.SendChatMessage = _G.ChatThrottleLib.ORIG_SendChatMessage
-		if _G.ChatThrottleLib.ORIG_SendAddonMessage then
-			_G.SendAddonMessage = _G.ChatThrottleLib.ORIG_SendAddonMessage
+		_G.SendChatMessage = ChatThrottleLib.ORIG_SendChatMessage
+		if ChatThrottleLib.ORIG_SendAddonMessage then
+			_G.SendAddonMessage = ChatThrottleLib.ORIG_SendAddonMessage
 		end
 	end
-	_G.ChatThrottleLib.ORIG_SendChatMessage = nil
-	_G.ChatThrottleLib.ORIG_SendAddonMessage = nil
-end
+	ChatThrottleLib.ORIG_SendChatMessage = nil
+	ChatThrottleLib.ORIG_SendAddonMessage = nil
 
-if not _G.ChatThrottleLib then
-	_G.ChatThrottleLib = {}
+elseif LibStub then 
+	ChatThrottleLib = LibStub:NewLibrary('ChatThrottleLib', CTL_VERSION)
+	if not ChatThrottleLib then  return  end
+else
+	ChatThrottleLib = {}
 end
-
-ChatThrottleLib = _G.ChatThrottleLib  -- in case some addon does "local ChatThrottleLib" above us and we're copypasted (AceComm-2, sigh)
-local ChatThrottleLib = _G.ChatThrottleLib
 
 ChatThrottleLib.version = CTL_VERSION
+_G.ChatThrottleLib = ChatThrottleLib
+
 
 
 
