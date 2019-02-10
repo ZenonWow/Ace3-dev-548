@@ -32,46 +32,62 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 --             and cleaned up a lot so that it no longer sucks.
 --
 
-local DBICON10 = "LibDBIcon-1.0"
-local DBICON10_MINOR = tonumber(("$Rev: 34 $"):match("(%d+)"))
-if not LibStub then error(DBICON10 .. " requires LibStub.") end
-local ldb = LibStub("LibDataBroker-1.1", true)
-if not ldb then error(DBICON10 .. " requires LibDataBroker-1.1.") end
-local lib = LibStub:NewLibrary(DBICON10, DBICON10_MINOR)
+local MAJOR, MINOR = "LibDBIcon-1.0", 34.1    -- tonumber(("$Rev: 34 $"):match("(%d+)"))
+assert(LibStub, MAJOR .. " requires LibStub.")
+local ldb = LibStub("LibDataBroker-1.1", nil, MAJOR)
+local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
 lib.disabled = lib.disabled or nil
 lib.objects = lib.objects or {}
 lib.callbackRegistered = lib.callbackRegistered or nil
 lib.callbacks = lib.callbacks or LibStub("CallbackHandler-1.0"):New(lib)
+local safecall = assert(LibCommon.safecall, "LibMinimapIcon(LibDBIcon) requires LibCommon.safecall")
 lib.notCreated = lib.notCreated or {}
 
 function lib:IconCallback(event, name, key, value, dataobj)
-	if lib.objects[name] then
+	local button = lib.objects[name]
+	if button then
 		if key == "icon" then
-			lib.objects[name].icon:SetTexture(value)
+			button.icon:SetTexture(value)
 		elseif key == "iconCoords" then
-			lib.objects[name].icon:UpdateCoord()
+			button.icon:UpdateCoord()
 		elseif key == "iconR" then
-			local _, g, b = lib.objects[name].icon:GetVertexColor()
-			lib.objects[name].icon:SetVertexColor(value, g, b)
+			local _, g, b = button.icon:GetVertexColor()
+			button.icon:SetVertexColor(value, g, b)
 		elseif key == "iconG" then
-			local r, _, b = lib.objects[name].icon:GetVertexColor()
-			lib.objects[name].icon:SetVertexColor(r, value, b)
+			local r, _, b = button.icon:GetVertexColor()
+			button.icon:SetVertexColor(r, value, b)
 		elseif key == "iconB" then
-			local r, g = lib.objects[name].icon:GetVertexColor()
-			lib.objects[name].icon:SetVertexColor(r, g, value)
+			local r, g = button.icon:GetVertexColor()
+			button.icon:SetVertexColor(r, g, value)
 		end
 	end
 end
-if not lib.callbackRegistered then
+
+function lib.RegisterCallbacks(lib)
+	if lib.callbackRegistered then  return  end
 	ldb.RegisterCallback(lib, "LibDataBroker_AttributeChanged__icon", "IconCallback")
-	ldb.RegisterCallback(lib, "LibDataBroker_AttributeChanged__iconCoords", "IconCallback")
 	ldb.RegisterCallback(lib, "LibDataBroker_AttributeChanged__iconR", "IconCallback")
 	ldb.RegisterCallback(lib, "LibDataBroker_AttributeChanged__iconG", "IconCallback")
 	ldb.RegisterCallback(lib, "LibDataBroker_AttributeChanged__iconB", "IconCallback")
+	ldb.RegisterCallback(lib, "LibDataBroker_AttributeChanged__iconCoords", "IconCallback")
 	lib.callbackRegistered = true
 end
+
+function lib.UnregisterCallbacks(lib)
+	ldb.UnregisterAllCallbacks(lib)
+	--[[
+	ldb.UnregisterCallback(lib, "LibDataBroker_AttributeChanged__icon")
+	ldb.UnregisterCallback(lib, "LibDataBroker_AttributeChanged__iconR")
+	ldb.UnregisterCallback(lib, "LibDataBroker_AttributeChanged__iconG")
+	ldb.UnregisterCallback(lib, "LibDataBroker_AttributeChanged__iconB")
+	ldb.UnregisterCallback(lib, "LibDataBroker_AttributeChanged__iconCoords")
+	--]]
+	lib.callbackRegistered = nil
+end
+
+lib:RegisterCallbacks()
 
 -- Tooltip code ripped from StatBlockCore by Funkydude
 local function getAnchors(frame)
@@ -188,9 +204,9 @@ local function updateCoord(self)
 	self:SetTexCoord(coords[1] + deltaX, coords[2] - deltaX, coords[3] + deltaY, coords[4] - deltaY)
 end
 
-local function createButton(name, object, db)
+local function createButton(name, dataobj, db)
 	local button = CreateFrame("Button", "LibDBIcon10_"..name, Minimap)
-	button.dataObject = object
+	button.dataObject = dataobj
 	button.db = db
 	button:SetFrameStrata("MEDIUM")
 	button:SetSize(31, 31)
@@ -208,13 +224,13 @@ local function createButton(name, object, db)
 	background:SetPoint("TOPLEFT", 7, -5)
 	local icon = button:CreateTexture(nil, "ARTWORK")
 	icon:SetSize(17, 17)
-	icon:SetTexture(object.icon)
+	icon:SetTexture(dataobj.icon)
 	icon:SetPoint("TOPLEFT", 7, -6)
 	button.icon = icon
 	button.isMouseDown = false
 
 	local r, g, b = icon:GetVertexColor()
-	icon:SetVertexColor(object.iconR or r, object.iconG or g, object.iconB or b)
+	icon:SetVertexColor(dataobj.iconR or r, dataobj.iconG or g, dataobj.iconB or b)
 
 	icon.UpdateCoord = updateCoord
 	icon:UpdateCoord()
@@ -233,10 +249,12 @@ local function createButton(name, object, db)
 
 	if lib.loggedIn then
 		updatePosition(button)
-		if not db or not db.hide then button:Show()
-		else button:Hide() end
+		button:SetShown(not db or not db.hide)
 	end
 	lib.callbacks:Fire("LibDBIcon_IconCreated", button, name) -- Fire 'Icon Created' callback
+
+	local safecall = LibCommon.safecall or pcall
+	safecall(dataobj.AttachDisplay, dataobj, button)
 end
 
 -- We could use a metatable.__index on lib.objects, but then we'd create
@@ -248,16 +266,15 @@ local function check(name)
 	end
 end
 
-lib.loggedIn = lib.loggedIn or false
 -- Wait a bit with the initial positioning to let any GetMinimapShape addons
 -- load up.
-if not lib.loggedIn then
+if lib.loggedIn == nil then
+	lib.loggedIn = false
 	local f = CreateFrame("Frame")
 	f:SetScript("OnEvent", function()
-		for _, object in pairs(lib.objects) do
-			updatePosition(object)
-			if not lib.disabled and (not object.db or not object.db.hide) then object:Show()
-			else object:Hide() end
+		for _, button in pairs(lib.objects) do
+			updatePosition(button)
+			button:SetShown( not lib.disabled and (not button.db or not button.db.hide) )
 		end
 		lib.loggedIn = true
 		f:SetScript("OnEvent", nil)
@@ -270,14 +287,40 @@ local function getDatabase(name)
 	return lib.notCreated[name] and lib.notCreated[name][2] or lib.objects[name].db
 end
 
-function lib:Register(name, object, db)
-	if not object.icon then error("Can't register LDB objects without icons set!") end
-	if lib.objects[name] or lib.notCreated[name] then error("Already registered, nubcake.") end
-	if not lib.disabled and (not db or not db.hide) then
-		createButton(name, object, db)
-	else
-		lib.notCreated[name] = {object, db}
+function lib:Register(name, dataobj, db)
+	if not dataobj.icon then  error("LibMinimapIcon:  LibDBIcon:Register():  Can't register dataobject '"..name.."' without .icon set.")  end
+	if lib.objects[name] or lib.notCreated[name] then
+		_G.geterrorhandler()("LibMinimapIcon:  LibDBIcon:Register():  dataobject '"..name.."' already registered.")
+		return false
 	end
+
+	if not lib.disabled and (not db or not db.hide) then
+		createButton(name, dataobj, db)
+	else
+		lib.notCreated[name] = {dataobj, db}
+	end
+end
+
+function lib:Unregister(name, dataobjIn)
+	local button = lib.objects[name]
+	local dataobj = button.dataObject
+	local safecall = LibCommon.safecall or pcall
+	safecall(dataobj.DetachDisplay, dataobj, button)
+
+	lib.notCreated[name] = nil
+	lib.objects[name] = nil
+	if not button then  return  end
+
+	button.dataObject = nil
+	button.db = nil
+	button:SetScript("OnEnter", nil)
+	button:SetScript("OnLeave", nil)
+	button:SetScript("OnClick", nil)
+	button:SetScript("OnDragStart", nil)
+	button:SetScript("OnDragStop", nil)
+	button:SetScript("OnMouseDown", nil)
+	button:SetScript("OnMouseUp", nil)
+	button:SetParent(nil)
 end
 
 function lib:Lock(name)
@@ -309,19 +352,19 @@ function lib:Hide(name)
 end
 function lib:Show(name)
 	if lib.disabled then return end
-	assert(name, "Usage: LibDBIcon:Show(dataobjectname)")
+	assert(name, "Usage: LibMinimapIcon:  LibDBIcon:Show(dataobjectname)")
 	check(name)
 	local button = lib.objects[name]
-	assert(button, "LDB object not registered: ".. tostring(name))
+	assert(button, "Dataobject not registered: ".. tostring(name))
 	button:Show()
 	updatePosition(button)
 end
 function lib:Toggle(name, shown)
 	if lib.disabled then return end
-	assert(name, "Usage: LibDBIcon:Show(dataobjectname)")
+	assert(name, "Usage: LibMinimapIcon:  LibDBIcon:Toggle(dataobjectname, shown or nil)")
 	check(name)
 	local button = lib.objects[name]
-	assert(button, "LDB object not registered: ".. tostring(name))
+	assert(button, "Dataobject not registered: ".. tostring(name))
 	if  shown == nil  then  shown = not button:IsShown()  end
 	button:SetShown(shown)
 	if shown then  updatePosition(button)  end
@@ -355,10 +398,15 @@ end
 
 function lib:EnableLibrary()
 	lib.disabled = nil
-	for name, object in pairs(lib.objects) do
-		if not object.db or not object.db.hide then
-			object:Show()
-			updatePosition(object)
+	-- lib:RegisterCallbacks()
+	local safecall = LibCommon.safecall or pcall
+
+	for name, button in pairs(lib.objects) do
+		if not button.db or not button.db.hide then
+			button:Show()
+			updatePosition(button)
+			local dataobj = button.dataObject
+			safecall(dataobj.AttachDisplay, dataobj, button)
 		end
 	end
 	for name, data in pairs(lib.notCreated) do
@@ -371,8 +419,13 @@ end
 
 function lib:DisableLibrary()
 	lib.disabled = true
-	for name, object in pairs(lib.objects) do
-		object:Hide()
+	-- lib:UnregisterCallbacks()
+	local safecall = LibCommon.safecall or pcall
+
+	for name, button in pairs(lib.objects) do
+		button:Hide()
+		local dataobj = button.dataObject
+		safecall(dataobj.DetachDisplay, dataobj, button)
 	end
 end
 
