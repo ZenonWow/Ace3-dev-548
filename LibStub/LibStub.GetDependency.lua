@@ -1,6 +1,6 @@
 local _G, LIBSTUB_NAME = _G, LIBSTUB_NAME or 'LibStub'
 local LibStub, LIB_NAME, LIB_REVISION  =  _G[LIBSTUB_NAME], "LibStub.GetDependency", 1
-assert(LibStub, "Include  LibStub  before LibStub.GetDependency.")
+assert(LibStub, 'Include "LibStub.lua" before LibStub.GetDependency.')
 
 
 local LibGetDep, oldrevision = LibStub:NewLibrary(LIB_NAME, LIB_REVISION)
@@ -37,7 +37,7 @@ if LibGetDep then
 
 		if not lib then
 			local dependents = { libname = libname }
-			lib = _G.setmetatable({ name = libname, LibNotLoaded = true, dependents = dependents} }, self.StubMeta)
+			lib = _G.setmetatable({ name = libname, IsNotLoaded = true, dependents = dependents} }, self.StubMeta)
 			dependents.lib = lib
 			self.libs[libname] = lib
 			self.dependents[libname] = dependents
@@ -48,11 +48,11 @@ if LibGetDep then
 
 
 	-----------------------------------------------------------------------------
-	-- On first load:  replace the StubMeta metatable with LibMeta,  clear LibNotLoaded flag
+	-- On first load:  replace the StubMeta metatable with LibMeta,  clear IsNotLoaded flag
 	function LibGetDep:LibStub_PreCreateLibrary(lib, name)
 		-- if _G.getmetatable(lib) == self.libMeta then  _G.geterrorhandler()("LibStub:_PreCreateLibrary() called twice: from NewLibrary() and LibStub.minors metatable.")  ;  return  end
 		self.loaded[#self.loaded+1] = LibStub.dependents[name]
-		LibStub.dependents[name], lib.dependents, lib.LibNotLoaded = nil,nil,nil
+		LibStub.dependents[name], lib.dependents, lib.IsNotLoaded = nil,nil,nil
 		self:RunOnUpdate()
 	end
 
@@ -82,13 +82,8 @@ if LibGetDep then
 	end
 
 
-	assert(LibStub.RegisterCallback, "LibStub:GetDependency() requires LibStub MINOR >= 3")
-	LibStub:RegisterCallback(LibStub)
-
-	--[[ Patch MINOR = 2 problems: Conflicts with LibStub.Short. If upgraded to MINOR = 3 then calls the callback twice.
-		LibStub.minorsMeta = { __newindex = function(minors, libname, newrevision)  rawset(minors, libname, newrevision)  ;  LibStub:LibStub_PreCreateLibrary(LibStub.libs[libname])  end })
-		setmetatable(LibStub.minors, LibStub.minorsMeta)
-	--]]
+	assert(LibStub.RegisterCallback, 'LibStub.GetDependency requires "LibStub.PreCreateLibrary" loaded before.')
+	LibStub:RegisterCallback(LibGetDep)
 
 	-- setmetatable(LibStub.minors, { __index = function(minors, libname)  return LibStub.stubs[libname] and 0 or -1  end })
 	LibGetDep.loaded   = LibGetDep.loaded   or {}

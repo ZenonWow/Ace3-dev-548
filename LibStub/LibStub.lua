@@ -5,10 +5,10 @@
 -- @release $Id: LibStub.lua 76 2007-09-03 01:50:17Z mikk $
 -- @patch $Id: LibStub.lua 76.1 2019-01 Mongusius, VERSION: 2 -> 3
 
---- Version 3:
--- Saves  lib.name = major  and  lib.revision = minor.
--- Allows fractional MINOR version numbers such as 2.1 to express patches, development versions (svn rev. 52 (2007-08-26) removed this possibility).
--- Releases are whole numbers. Patches should not go over .9, that would confuse the version comparison:  x.10 < x.9  evaluates as smaller.
+--- Revision 3:
+-- Adds a hook function for LibStub.PreCreateLibrary, which is optional, but more efficient than hooking __newindex on LibStub.minors (done for MINOR=2).
+-- Allows fractional MINOR revision numbers such as 2.1 for development versions, patches.  Svn rev. 52 (2007-08-26) removed this possibility.
+-- Patches should not go over .9, that would confuse the version comparison:  x.10 < x.9  evaluates as smaller.
 
 -- GLOBALS: <none>
 -- Upvalued:  type,tonumber,tostring,strmatch,setmetatable
@@ -17,16 +17,14 @@
 
 
 local _G, LIBSTUB_NAME, LIBSTUB_REVISION = _G, LIBSTUB_NAME or 'LibStub', 3
-local LibStub = _G[LIBSTUB_NAME] or { minor = 0, libs = {}, minors = {}, dependents = {}  }
+local LibStub = _G[LIBSTUB_NAME] or { minor = 0, libs = {}, minors = {} }  --, dependents = {} }
 
 -- Check if current version of LibStub is obsolete.
 if  (LibStub.minor or 0) < LIBSTUB_REVISION  then
 	_G[LIBSTUB_NAME] = LibStub
-	LibStub.minor  = LIBSTUB_REVISION
-	LibStub.libs   = LibStub.libs   or {}
-	LibStub.minors = LibStub.minors or {}
-	LibStub.libs.LibStub   = LibStub
-	LibStub.minors.LibStub = LIBSTUB_REVISION
+	LibStub.minor = LIBSTUB_REVISION
+	-- LibStub.libs, LibStub.minors  =  LibStub.libs or {}, LibStub.minors or {}
+	LibStub.libs.LibStub, LibStub.minors.LibStub  =  LibStub, LIBSTUB_REVISION
 
 	-- Upvalued Lua globals:
 	local type,tonumber,tostring,strmatch,setmetatable = type,tonumber,tostring,string.match,setmetatable
@@ -42,40 +40,27 @@ if  (LibStub.minor or 0) < LIBSTUB_REVISION  then
 	--
 	function LibStub:NewLibrary(name, revision, _, _, stackdepth)
 		if type(name)~='string' then  _G.error( "Usage: LibStub:NewLibrary(name, revision):  `name` - string expected, got "..type(name) , (stackdepth or 1)+1 )  end
+
 		revision = torevision(revision)
-		if not revision then  _G.error( "Usage: LibStub:NewLibrary(name, revision):  `revision` - expected a number or a string containing a number, got '"..tostring(revision).."'." , (stackdepth or 1)+1 )  end
+		if not revision then
+			_G.error( "Usage: LibStub:NewLibrary(name, revision):  `revision` - expected a number or a string containing a number, got '"..tostring(revision).."'." , (stackdepth or 1)+1 )
+		end
 
 		local oldrevision = self.minors[name]
 		if oldrevision and oldrevision >= revision then  return nil  end
 
-		local lib =  self.libs[name]  or  { name = name }
-		self.libs[name], self.minors[name], lib.revision = lib, revision, revision
-		if not oldrevision then  self:_PreCreateLibrary(lib, name)  end
+		local lib = self.libs[name] or {}
+		self.libs[name] = lib
+		-- Optimized path to skip  __newindex()  call in  self.minors'  metatable.
+		-- The minimal LibStub.NewLibrary.lua does not have _newminor(), neither this optimization.
+		if not oldrevision then  self._newminor(minors, name, revision)  end
+		-- self.libs[name], self.minors[name] = lib, revision
 		return lib, oldrevision or 0
 	end
 
-	-- Callback before first loading a library.
-	function LibStub:_PreCreateLibrary(lib, name)
-		setmetatable(lib, self.LibMeta)
-		for i,receiver in ipairs(self.callbacks) do  receiver:LibStub_PreCreateLibrary(lib, name)  end
-	end
-
-	-- Library metatable for pretty print(lib).
-	LibStub.LibMeta    = LibStub.LibMeta    or {}
-	LibStub.LibMeta.__tostring  = function(lib)  return  lib.revision  and  tostring(lib.name).." (r"..tostring(lib.revision)..")"  or  tostring(lib.name)  end
-
-
-	-----------------------------------------------------------------------------
-	--- LibStub:RegisterCallback(receiver)
-	-- Adds a recever for the  receiver:LibStub_PreCreateLibrary(lib, name)  event.
-	--
-	LibStub:RegisterCallback(receiver)
-		assert(receiver.LibStub_PreCreateLibrary, "LibStub:RegisterCallback(receiver):  receiver must have :LibStub_PreCreateLibrary(lib, name) method.")
-		if self.callbacks[receiver] then  return false  end
-		self.callbacks[#self.callbacks+1], self.callbacks[receiver] receiver,receiver
-	end
-
-	LibStub.callbacks = LibStub.callbacks or setmetatable({}, { __mode = 'kv'} )
+	-- Function to hook by LibStub.PreCreateLibrary. Signature mimics `getmetatable(minors).__newindex(..)` to hook MINOR=2 with the same function.
+	LibStub._newminor = LibStub._newminor  or  function(minors, name, revision)  minors[name] = revision  end
+	-- LibStub._PreCreateLibrary = LibStub._PreCreateLibrary  or  function()  end
 
 
 	-----------------------------------------------------------------------------
@@ -109,14 +94,6 @@ if  (LibStub.minor or 0) < LIBSTUB_REVISION  then
 	-- Iterate over the currently registered libraries.
 	-- @return an iterator used with `for in`.
 	function LibStub:IterateLibraries()  return _G.pairs(self.libs)  end
-
-
-	-----------------------------------------------------------------------------
-	-- Upgrade libs with .name and .revision fields. (oldversion <= 2)
-	for name,lib in _G.pairs(LibStub.libs) do
-		lib.name     = lib.name     or name
-		lib.revision = lib.revision or LibStub.minors[name]
-	end
 
 end -- LibStub
 

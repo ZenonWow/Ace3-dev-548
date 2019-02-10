@@ -18,12 +18,18 @@
 # Packaged with Ace3
 LibStub.lua
 
-# Extensions
+# Include  LibStub.NewLibrary.lua  in small / one-file libraries. It's the minimal subset to register.
+# LibStub.NewLibrary.lua
+
+# Register a non-LibStub library in a backward-compatible manner:
 LibStub.ImportLibrary.lua
+
+
+# Extensions
+
+LibStub.PreCreateLibrary.lua
 LibStub.GetDependency.lua
 LibStub.Short.lua
 # LibStub.SetEnv.lua
 
-
-# LibStub.NewLibrary.lua -- To include in small / one-file libraries only.
 

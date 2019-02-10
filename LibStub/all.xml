@@ -1,10 +1,17 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
 
-<!-- Packaged with Ace3 -->
+<!-- # Packaged with Ace3 -->
 <Script  file="LibStub.lua" />
 
-<!-- Extensions -->
+<!-- # Include  LibStub.NewLibrary.lua  in small / one-file libraries. It's the minimal subset to register. -->
+<!-- <Script  file="LibStub.NewLibrary.lua" /> -->
+
+<!-- # Register a non-LibStub library in a backward-compatible manner: -->
 <Script  file="LibStub.ImportLibrary.lua" />
+
+
+<!-- # Extensions -->
+<Script  file="LibStub.PreCreateLibrary.lua" />
 <Script  file="LibStub.GetDependency.lua" />
 <Script  file="LibStub.Short.lua" />
 <Script  file="LibStub.SetEnv.lua" />

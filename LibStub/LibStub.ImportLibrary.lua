@@ -1,5 +1,5 @@
 local _G, LibStub, LIB_NAME, LIB_REVISION  =  _G, LibStub, "LibStub.ImportLibrary", 1
-assert(LibStub, "Include  LibStub  before LibStub.ImportLibrary.")
+assert(LibStub, 'Include "LibStub.lua" before LibStub.ImportLibrary.')
 LibStub.libs[LIB_NAME] = LibStub.libs[LIB_NAME] or LibStub
 
 --[[
@@ -9,7 +9,7 @@ if oldrevision < LIB_REVISION then
 
 if LibStub:NewLibrary(LIB_NAME, LIB_REVISION) then
 
-	function LibStub:ImportLibrary(name, lib, revision, noversioncheck)
+	function LibStub:ImportLibrary(name, revision, lib, noversioncheck)
 		if not lib then  return  end
 		local oldrevision = self.minors[name]
 		if oldrevision and oldrevision >= revision and not noversioncheck then  return nil  end

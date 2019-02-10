@@ -49,9 +49,9 @@ if Shorty then
 		Shorty:LibStub_PreCreateLibrary(lib, libname)
 	end
 
-	if LibStub.RegisterCallback then
-		LibStub:RegisterCallback(Shorty)
-	end
+	assert(LibStub.RegisterCallback, 'LibStub.Short requires "LibStub.PreCreateLibrary" loaded before.')
+	LibStub:RegisterCallback(Shorty)
+
 end
 
 
