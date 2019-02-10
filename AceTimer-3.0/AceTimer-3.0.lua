@@ -37,64 +37,77 @@ local AceTimer, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not AceTimer then return end -- No upgrade needed
 
 AceTimer.frame = AceTimer.frame or CreateFrame("Frame", "AceTimer30Frame") -- Animation parent
-AceTimer.inactiveTimers = AceTimer.inactiveTimers or {}                    -- Timer recycling storage
-AceTimer.activeTimers = AceTimer.activeTimers or {}                        -- Active timer list
+-- AceTimer.inactiveTimers = AceTimer.inactiveTimers or {}                 -- Timer recycling storage until MINOR = 16
+AceTimer.inactiveTimerList = AceTimer.inactiveTimerList or {}              -- Timer recycling list MINOR > 16
+AceTimer.activeTimers      = AceTimer.activeTimers or {}                   -- Active id->timer map
+AceTimer.embeds            = AceTimer.embeds or {}                         -- Clients embedding these mixins.
+AceTimer.mixins            = AceTimer.mixins or {}                         -- Methods embedded in clients.
+local mixins = AceHook.mixins
+
 
 -- Lua APIs
-local type, unpack, next, error, pairs, tostring, select = type, unpack, next, error, pairs, tostring, select
+local type, unpack, next, error, pairs, ipairs, tostring, select = type, unpack, next, error, pairs, ipairs, tostring, select
 
 -- Upvalue our private data
-local inactiveTimers = AceTimer.inactiveTimers
-local activeTimers = AceTimer.activeTimers
+local activeTimers, inactiveTimerList = AceTimer.activeTimers, AceTimer.inactiveTimerList
 
-local function OnFinished(self)
-	local id = self.id
-	if type(self.func) == "string" then
-		-- We manually set the unpack count to prevent issues with an arg set that contains nil and ends with nil
-		-- e.g. local t = {1, 2, nil, 3, nil} print(#t) will result in 2, instead of 5. This fixes said issue.
-		self.object[self.func](self.object, unpack(self.args, 1, self.argsCount))
-	else
-		self.func(unpack(self.args, 1, self.argsCount))
+
+local function OnFinished(timer)
+	local id,args = timer.id, timer.args
+	if not timer.looping then
+		activeTimers[id] = nil
+		inactiveTimerList[#inactiveTimerList+1] = timer
+		timer.args = nil
 	end
 
-	-- If the id is different it means that the timer was already cancelled
-	-- and has been used to create a new timer during the OnFinished callback.
-	if not self.looping and id == self.id then
-		activeTimers[self.id] = nil
-		self.args = nil
-		inactiveTimers[self] = true
+	local callback =  timer.methodName and timer.object[timer.methodName]  or  timer.func
+	-- We manually set the unpack count to prevent issues with an arg set that contains nil and ends with nil
+	-- e.g. local t = {1, 2, nil, 3, nil} print(#t) will result in 2, instead of 5. This fixes said issue.
+	callback(unpack(args, 1, args.n))
+
+	-- If the id is different it means that the timer was reused to create a new timer during the OnFinished callback.
+	-- AceBucket does that.
+	if  not timer.looping  and  id == timer.id  then
+		-- timer.args = nil
+		-- .func and .object are static, not candidates for garbage collection in most if not all use-cases.
+		-- timer.func = nil
+		-- timer.object = nil
 	end
 end
 
-local function new(self, loop, func, delay, ...)
-	local timer = next(inactiveTimers)
+
+local function new(client, looping, callback, delay, ...)
+	local timer = inactiveTimerList[#inactiveTimerList]
+	local anim
 	if timer then
-		inactiveTimers[timer] = nil
+		inactiveTimerList[#inactiveTimerList] = nil
+		anim = timer:GetParent()
 	else
-		local anim = AceTimer.frame:CreateAnimationGroup()
+		anim = AceTimer.frame:CreateAnimationGroup()
 		timer = anim:CreateAnimation()
 		timer:SetScript("OnFinished", OnFinished)
 	end
 
 	-- Very low delays cause the animations to fail randomly.
 	-- A limited resolution of 0.01 seems reasonable.
-	if delay < 0.01 then
-		delay = 0.01
-	end
+	if delay < 0.01 then  delay = 0.01  end
 
-	timer.object = self
-	timer.func = func
-	timer.looping = loop
-	timer.args = {...}
-	timer.argsCount = select("#", ...)
-
-	local anim = timer:GetParent()
-	if loop then
-		anim:SetLooping("REPEAT")
+	if type(callback)=="string" then
+		timer.methodName = callback
+		timer.func = client[callback]
+		timer.args = { client, ... }
+		timer.args.n = 1 + select("#",...)
 	else
-		anim:SetLooping("NONE")
+		timer.methodName = nil -- Reset if timer is reused.
+		timer.func = callback
+		timer.args = {...}
+		timer.args.n = select("#",...)
 	end
+
+	timer.object = client
+	timer.looping = looping
 	timer:SetDuration(delay)
+	anim:SetLooping(looping and 'REPEAT' or 'NONE')
 
 	local id = tostring(timer.args)
 	timer.id = id
@@ -103,6 +116,8 @@ local function new(self, loop, func, delay, ...)
 	anim:Play()
 	return id
 end
+
+
 
 --- Schedule a new one-shot timer.
 -- The timer will fire once in `delay` seconds, unless canceled before.
@@ -119,19 +134,21 @@ end
 -- function MyAddOn:TimerFeedback()
 --   print("5 seconds passed")
 -- end
-function AceTimer:ScheduleTimer(func, delay, ...)
-	if not func or not delay then
+--
+function mixins:ScheduleTimer(callback, delay, ...)
+	if not callback or not delay then
 		error(MAJOR..": ScheduleTimer(callback, delay, args...): 'callback' and 'delay' must have set values.", 2)
 	end
-	if type(func) == "string" then
+	if type(callback) == "string" then
 		if type(self) ~= "table" then
 			error(MAJOR..": ScheduleTimer(callback, delay, args...): 'self' - must be a table.", 2)
-		elseif not self[func] then
-			error(MAJOR..": ScheduleTimer(callback, delay, args...): Tried to register '"..func.."' as the callback, but it doesn't exist in the module.", 2)
+		elseif not self[callback] then
+			error(MAJOR..": ScheduleTimer(callback, delay, args...): Tried to register '"..callback.."' as the callback, but it doesn't exist in the module.", 2)
 		end
 	end
-	return new(self, nil, func, delay, ...)
+	return new(self, nil, callback, delay, ...)
 end
+
 
 --- Schedule a repeating timer.
 -- The timer will fire every `delay` seconds, until canceled.
@@ -154,25 +171,27 @@ end
 --     self:CancelTimer(self.testTimer)
 --   end
 -- end
-function AceTimer:ScheduleRepeatingTimer(func, delay, ...)
-	if not func or not delay then
+--
+function mixins:ScheduleRepeatingTimer(callback, delay, ...)
+	if not callback or not delay then
 		error(MAJOR..": ScheduleRepeatingTimer(callback, delay, args...): 'callback' and 'delay' must have set values.", 2)
 	end
-	if type(func) == "string" then
+	if type(callback) == "string" then
 		if type(self) ~= "table" then
 			error(MAJOR..": ScheduleRepeatingTimer(callback, delay, args...): 'self' - must be a table.", 2)
-		elseif not self[func] then
-			error(MAJOR..": ScheduleRepeatingTimer(callback, delay, args...): Tried to register '"..func.."' as the callback, but it doesn't exist in the module.", 2)
+		elseif not self[callback] then
+			error(MAJOR..": ScheduleRepeatingTimer(callback, delay, args...): Tried to register '"..callback.."' as the callback, but it doesn't exist in the module.", 2)
 		end
 	end
-	return new(self, true, func, delay, ...)
+	return new(self, true, callback, delay, ...)
 end
+
 
 --- Cancels a timer with the given id, registered by the same addon object as used for `:ScheduleTimer`
 -- Both one-shot and repeating timers can be canceled with this function, as long as the `id` is valid
 -- and the timer has not fired yet or was canceled before.
 -- @param id The id of the timer, as returned by `:ScheduleTimer` or `:ScheduleRepeatingTimer`
-function AceTimer:CancelTimer(id)
+function mixins:CancelTimer(id)
 	local timer = activeTimers[id]
 	if not timer then return false end
 
@@ -181,12 +200,12 @@ function AceTimer:CancelTimer(id)
 
 	activeTimers[id] = nil
 	timer.args = nil
-	inactiveTimers[timer] = true
+	inactiveTimerList[#inactiveTimerList+1] = timer
 	return true
 end
 
 --- Cancels all timers registered to the current addon object ('self')
-function AceTimer:CancelAllTimers()
+function mixins:CancelAllTimers()
 	for k,v in pairs(activeTimers) do
 		if v.object == self then
 			AceTimer.CancelTimer(self, k)
@@ -198,7 +217,7 @@ end
 -- This function will return nil when the id is invalid.
 -- @param id The id of the timer, as returned by `:ScheduleTimer` or `:ScheduleRepeatingTimer`
 -- @return true if it's still ticking, otherwise nil.
-function AceTimer:IsActive(id)
+function mixins:IsActive(id)
 	return activeTimers[id] and true
 end
 
@@ -206,11 +225,12 @@ end
 -- This function will return 0 when the id is invalid.
 -- @param id The id of the timer, as returned by `:ScheduleTimer` or `:ScheduleRepeatingTimer`
 -- @return The time left on the timer.
-function AceTimer:TimeLeft(id)
+function mixins:TimeLeft(id)
 	local timer = activeTimers[id]
 	if not timer then return 0 end
 	return timer:GetDuration() - timer:GetElapsed()
 end
+
 
 
 -- ---------------------------------------------------------------------
@@ -255,30 +275,55 @@ elseif oldminor and oldminor < 13 then
 	AceTimer.hashCompatTable = nil
 end
 
--- upgrade existing timers to the latest OnFinished
-for timer in pairs(inactiveTimers) do
+-- Migrate inactiveTimers (timer->true) to inactiveTimerList (index->timer).
+if AceTimer.inactiveTimers then
+	for timer in pairs(AceTimer.inactiveTimers) do
+		inactiveTimerList[#inactiveTimerList+1] = timer
+	end
+	wipe(AceTimer.inactiveTimers)
+	AceTimer.inactiveTimers = nil
+end
+
+-- Upgrade existing timers to the latest OnFinished.
+for i,timer in ipairs(inactiveTimerList) do
 	timer:SetScript("OnFinished", OnFinished)
 end
 
 for _,timer in pairs(activeTimers) do
 	timer:SetScript("OnFinished", OnFinished)
+
+	-- Move/rename timer.argsCount -> timer.args.n
+	if timer.argsCount and timer.args then  timer.args.n = timer.argsCount  end
+	timer.argsCount = nil
+
+	-- Upgrade method calls.
+	if type(timer.func)=='string' then
+		-- Store methodName in its own field.
+		timer.methodName = timer.func
+		-- Retreive the method from `self` (object). As it might change, every OnFinished() retreives it anyway.
+		timer.func = timer.object[timer.methodName]
+		-- Store callback's `self` (object) as first parameter.
+		table.insert(timer.args, 1, timer.object)
+		timer.args.n = 1 + timer.args.n
+	end
 end
+
+
 
 -- ---------------------------------------------------------------------
 -- Embed handling
 
-AceTimer.embeds = AceTimer.embeds or {}
 
-local mixins = {
-	"ScheduleTimer", "ScheduleRepeatingTimer",
-	"CancelTimer", "CancelAllTimers",
-	"TimeLeft"
-}
-
+-- Embeds AceTimer into the target object making the functions from the mixins list available on target:..
+-- @param target target object to embed AceTimer in
 function AceTimer:Embed(target)
-	AceTimer.embeds[target] = true
-	for _,v in pairs(mixins) do
-		target[v] = AceTimer[v]
+	-- TODO: Remove if no such anomaly found.
+	if self ~= AceTimer then  geterrorhandler()( "AceTimer:Embed("..tostring(target).."): self= "..tostring(self).." ~= AceTimer" )  end
+	self = AceTimer
+
+	self.embeds[target] = true
+	for name,method in pairs(self.mixins) do
+		target[name] = method
 	end
 	return target
 end
@@ -291,6 +336,14 @@ function AceTimer:OnEmbedDisable(target)
 	target:CancelAllTimers()
 end
 
+
+
+-- Some addons use mixins in the form AceTimer.ScheduleTimer(clientObject, callback, delay, ...)
+AceTimer:Embed(AceTimer)
+
+
 for addon in pairs(AceTimer.embeds) do
 	AceTimer:Embed(addon)
 end
+
+

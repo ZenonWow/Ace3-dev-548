@@ -1,267 +1,313 @@
+--[[ $Id: CallbackHandler-1.0.lua 14 2010-08-09 00:43:38Z mikk $ ]]
 --[[ $Id: CallbackHandler-1.0.lua 965 2010-08-09 00:47:52Z mikk $ ]]
 -- @name CallbackHandler-1.0.lua
--- @release $Id: CallbackHandler-1.0.lua 965 2010-08-09 00:47:52Z mikk $
--- @patch $Id: LibStub.lua 965.1 2019-01 Mongusius, MINOR: 6 -> 6.1
--- 6.1 added safecall() from AceAddon-3.0 and AceBucket-3.0 with an updated implementation
--- added an alternative implementation without loadstring() (dynamic code)
+-- @release $Id: CallbackHandler-1.0.lua 14 2010-08-09 00:43:38Z mikk $
+-- @release $Id: CallbackHandler-1.0.lua 22 2018-07-21 14:17:22Z nevcairiel $
+-- @patch $Id: LibStub.lua 14.1 2019-01 Mongusius, MINOR: 6 -> 8
+-- @patch $Id: LibStub.lua 22.1 2019-01 Mongusius, MINOR: 7 -> 8
+
+--- Revision 7 replaces the complex Dispatchers with BfA's xpcall(unsafeFunc, errorhandler, args...)
+-- that finally passes args just like  pcall(unsafeFunc, args...)  and Lua 5.3 and Lua 5.2's xpcall().
+
+--- Revision 8:
+-- Added safecall() from AceAddon-3.0 and AceBucket-3.0 with an updated implementation
+-- Added an alternative Dispatchers implementation without loadstring() (dynamic code)
+-- Exports LibCommon.AutoTablesMeta for AceAddon, AceHook
 -- 
--- Creating and using a CallbackHandler registry (details below):
--- local registry = CallbackHandler:New(target, RegisterName, UnregisterName, UnregisterAllName)
+--- Usage:  from the event source/producer/sender
+-- local registry = CallbackHandler:New(sender, RegisterName, UnregisterName, UnregisterAllName)
 -- registry:Fire(eventname, ...)
--- target[RegisterName](receiver, eventname, functionrefOrMethodname[, arg])
--- target[UnregisterName](receiver, eventname)
--- target[UnregisterAllName](...eventnames)
---
--- Features exported to Global environment:  CallbackHandler, safecall(), AutoCreateTablesMeta
--- CallbackHandler.safecall(), CallbackHandler.AutoCreateTablesMeta
 
-local MAJOR, MINOR = "CallbackHandler-1.0", 6.1
+--- Usage:  from the event listener/consumer/receiver
+-- sender.RegisterCallback(receiver, eventname, functionrefOrMethodname[, arg])
+-- sender.UnregisterCallback(receiver, eventname)
+-- sender.UnregisterAllCallbacks(...eventnames)
+
+
+local MAJOR, MINOR = "CallbackHandler-1.0", 7.1
 local CallbackHandler = LibStub:NewLibrary(MAJOR, MINOR)
-if not CallbackHandler then return end -- No upgrade needed
+if not CallbackHandler then  return  end -- No upgrade needed
 
--- Lua APIs
-local _G, tconcat = _G, table.concat
+-- Upvalued Lua globals:
+local _G, xpcall, tconcat = _G, xpcall, table.concat
 local assert, error, loadstring = assert, error, loadstring
 local setmetatable, rawset, rawget = setmetatable, rawset, rawget
 local next, select, pairs, type, tostring = next, select, pairs, type, tostring
-local xpcall = xpcall
 
 -- Global vars/functions that we don't upvalue since they might get hooked, or upgraded
 -- List them here for Mikk's FindGlobals script
 -- GLOBALS: geterrorhandler
 
--- Forward declaration
-local safecall
 
---------------------------------------------------------------------------
--- AutoCreateTablesMeta: metatable that automatically creates empty inner tables when keys are first referenced.
+-- Export to _G:  CallbackHandler, CallbackHandler.Dispatch(callbacks, args...)
+_G.CallbackHandler = _G.CallbackHandler or CallbackHandler
 
-local AutoCreateTablesMeta = {__index = function(self, key) self[key] = {} return self[key] end}
-CallbackHandler.AutoCreateTablesMeta = AutoCreateTablesMeta
-_G.AutoCreateTablesMeta = AutoCreateTablesMeta
+-- Export to LibCommon:  AutoTablesMeta, errorhandler
+local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
+
+-- AutoTablesMeta: metatable that automatically creates empty inner tables when keys are first referenced.
+LibCommon.AutoTablesMeta = LibCommon.AutoTablesMeta or { __index = function(self, key)  if key ~= nil then  local v={} ; self[key]=v ; return v  end  end }
+local AutoTablesMeta = LibCommon.AutoTablesMeta
+
+-- Allow hooking _G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
+-- Avoiding tailcall: errorhandler() function would show up as "?" in stacktrace, making it harder to understand.
+LibCommon.errorhandler = LibCommon.errorhandler or  function(errorMessage)  return true and _G.geterrorhandler()(errorMessage)  end
+local errorhandler = LibCommon.errorhandler
+
+-- Forward declaration.
+local Dispatch, Dispatchers
 
 
---------------------------------------------------------------------------
--- safecall(unsafeFunc, arg1, arg2, ...)
---
--- Similar to pcall(unsafeFunc, arg1, arg2, ...)
--- with proper errorhandler while executing unsafeFunc.
 
-local function dispatcherErrorHandler(err)  return _G.geterrorhandler()(err)  end
+if  select(4, GetBuildInfo()) >= 80000  then
 
-if  not safecall  then
+	----------------------------------------
+	--- Battle For Azeroth Addon Changes
+	-- https://us.battle.net/forums/en/wow/topic/20762318007
+	-- • xpcall now accepts arguments like pcall does
+	--
 
-	local SafecallDispatchers = {}
-	function SafecallDispatchers:CreateDispatcher(argCount)
-		local sourcecode = [===[
-			local xpcall, errorhandler = ...
-			local unsafeFuncUp, ARGS
-			local function safecallThunk()  return unsafeFuncUp(ARGS)  end
-			
-			local function dispatcher(unsafeFunc, ...)
-				 unsafeFuncUp, ARGS = unsafeFunc, ...
-				 return xpcall(safecallThunk, errorhandler)
+	--[[ $Id: CallbackHandler-1.0.lua 22 2018-07-21 14:17:22Z nevcairiel $  MINOR = 7
+	local function Dispatch(handlers, ...)
+		local index, method = next(handlers)
+		if not method then return end
+
+		repeat
+			xpcall(method, errorhandler, ...)
+			index, method = next(handlers, index)
+		until not method
+	end
+	--]]
+
+	-- local
+	function Dispatch(callbacks, ...)
+		local callbacksRan, ok = 0
+		-- local errorhandler = _G.geterrorhandler()
+		for  key, callback  in  next, callbacks  do
+			ok = xpcall(callback, errorhandler, ...)
+			if  ok  then  callbacksRan = callbacksRan + 1  end
+		end
+		return callbacksRan
+	end
+
+	--[[
+	-- local
+	function Dispatch(callbacks, ...)
+		local callbacksRan, ok = 0
+		-- local errorhandler = _G.geterrorhandler()
+		for  receiver, callback  in  next, callbacks  do
+			if  type(callback) == 'function'  then
+				ok = xpcall(callback, errorhandler, ...)
+			else
+				ok = xpcall(receiver[callback], errorhandler, receiver, ...)
 			end
-			
+			if  ok  then  callbacksRan = callbacksRan + 1  end
+		end
+		return callbacksRan
+	end
+	--]]
+
+
+
+else  -- if  select(4, GetBuildInfo()) < 80000  then
+
+	--------------------------------------------------------------------------
+	-- Dispatchers[argCount](callbacks, arg1, arg2, ...)
+
+	-- local
+	Dispatchers = {}
+	function Dispatchers:CreateDispatcher(argCount)
+		local sourcecode = [===[
+			local next, xpcall, errorhandler = ...
+
+			local function dispatcher(callbacks, ...)
+				if  not next(callbacks)  then  return 0  end
+
+				-- local errorhandler = errorhandler or geterrorhandler()
+				local unsafeFunc, ARGS = nil, ...
+				local function xpcallClosure()  return unsafeFunc(ARGS)  end
+
+				local callbacksRan = 0
+				for  key, callback  in  next, callbacks  do
+					unsafeFunc = callback
+					local ok = xpcall(xpcallClosure, errorhandler)
+					if  ok  then  callbacksRan = callbacksRan + 1  end
+				end
+				return callbacksRan
+			end
+
 			return dispatcher
 		]===]
 
 		local ARGS = {}
 		for i = 1, argCount do ARGS[i] = "a"..i end
 		sourcecode = sourcecode:gsub("ARGS", tconcat(ARGS, ","))
-		local creator = assert(loadstring(sourcecode, "SafecallDispatchers[argCount="..argCount.."]"))
-		local dispatcher = creator(xpcall, errorhandler)
+		local creator = assert(loadstring(sourcecode, "CallbackHandler.Dispatchers[argCount="..argCount.."]"))
+		local dispatcher = creator(next, xpcall, errorhandler)
 		rawset(self, argCount, dispatcher)
 		return dispatcher
 	end
-	setmetatable(SafecallDispatchers, { __index = SafecallDispatchers.CreateDispatcher })
 
-	SafecallDispatchers[0] = function(unsafeFunc)
-		return xpcall(unsafeFunc, dispatcherErrorHandler)
-	end
+	--[[
+	local function Dispatchers:CreateDispatcher(argCount)
+		local sourcecode = [===[
+			local next, xpcall, errorhandler = ...
+			
+			local unsafeFunc, ARGS
+			local function xpcallClosure()  return unsafeFunc(ARGS)  end
 
-	function safecall(unsafeFunc, ...)
-		-- we check to see if unsafeFunc is actually a function here and don't error when it isn't
-		-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
-		-- present execution should continue without hinderance
-		if type(unsafeFunc) ~= "function" then  return  end
-		local dispatcher = SafecallDispatchers[select('#',...)]
-		return dispatcher(unsafeFunc, ...)
-	end
+			local function dispatcher(callbacks, ...)
+				local index
+				index, unsafeFunc = next(callbacks)
+				if  not unsafeFunc  then  return 0  end
 
-end
+				-- local errorhandler = errorhandler or geterrorhandler()
+				local SAVED = ARGS
+				ARGS = ...
 
+				local callbacksRan = 0
+				repeat
+					local ok = xpcall(xpcallClosure, errorhandler)
+					if  ok  then  callbacksRan = callbacksRan + 1  end
+					index, unsafeFunc = next(callbacks, index)
+				until not unsafeFunc
 
-
---------------------------------------------------------------------------
--- safecall(unsafeFunc, arg1, arg2, ...)
---
--- Alternative implementation without loadstring() (dynamic code).
--- Handles any number of arguments by packing them in an array and unpacking in the safecallThunk.
--- Simpler and probably slower with an extra array creation on each call.
--- Easier to recognize in a callstack.
-
-if  not safecall  then
-
-	function safecall(unsafeFunc, ...)
-		-- we check to see if the unsafeFunc passed is actually a function here and don't error when it isn't
-		-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
-		-- present execution should continue without hinderance
-		if type(unsafeFunc) ~= "function" then  return  end
-		
-		-- Without parameters call the function directly
-		local argsCount = select('#',...)
-		if  0 == argsCount  then
-			-- return xpcall(unsafeFunc, _G.geterrorhandler())
-			return xpcall(unsafeFunc, dispatcherErrorHandler)
-		end
-
-		-- Pack the parameters to pass to the actual function
-		local args = { ... }
-		-- Unpack the parameters in the thunk
-		local function safecallThunk()  return unsafeFunc( unpack(args,1,argsCount) )  end
-		-- Do the call through the thunk
-		-- return xpcall(safecallThunk, _G.geterrorhandler())
-		return xpcall(safecallThunk, dispatcherErrorHandler)
-	end
-
-end
-
-
---------------------------------------------------------------------------
--- Export in library and global namespace
-
-CallbackHandler.safecall = safecall
-_G.safecall = safecall
-
-
-
-
-local Dispatchers = {}
-function Dispatchers:CreateDispatcher(argCount)
-	local sourcecode = [===[
-		local next, xpcall, errorhandler = ...
-		
-		local function dispatcher(callbacks, ...)
-			if  not next(callbacks)  then  return 0  end
-			local unsafeFunc, ARGS = nil, ...
-			local function xpcallThunk()  return unsafeFunc(ARGS)  end
-			local callbacksRan = 0
-			for  key, callback  in  next, callbacks  do
-				unsafeFunc = callback
-				local ran = xpcall(xpcallThunk, errorhandler)
-				if  ran  then  callbacksRan = callbacksRan + 1  end
+				ARGS = SAVED
+				return callbacksRan
 			end
-			return callbacksRan
-		end
-		
+
+			return dispatcher
+		]===]
+
+		local ARGS, SAVED = {}, {}
+		for i = 1, argCount do ARGS[i], SAVED[i] = "a"..i, "s"..i end
+		sourcecode = sourcecode:gsub("SAVED", tconcat(SAVED, ",")):gsub("ARGS", tconcat(ARGS, ","))
+		local creator = assert(loadstring(sourcecode, "SafecallDispatchers[argCount="..argCount.."]"))
+		local dispatcher = creator(next, xpcall, errorhandler)
+		rawset(self, argCount, dispatcher)
 		return dispatcher
-	]===]
+	end
+	--]]
 
-	local ARGS = {}
-	for i = 1, argCount do ARGS[i] = "a"..i end
-	sourcecode = sourcecode:gsub("ARGS", tconcat(ARGS, ","))
-	local creator = assert(loadstring(sourcecode, "CallbackHandler.Dispatchers[argCount="..argCount.."]"))
-	local dispatcher = creator(next, xpcall, dispatcherErrorHandler)
-	rawset(self, argCount, dispatcher)
-	return dispatcher
-end
+	setmetatable(Dispatchers, { __index = Dispatchers.CreateDispatcher })
 
---[[
-local function Dispatchers:CreateDispatcher(argCount)
-	local sourcecode = [===[
-		local next, xpcall, errorhandler = ...
-		
-		local unsafeFunc, ARGS
-		local function xpcallThunk()  return unsafeFunc(ARGS)  end
-		
-		local function dispatcher(callbacks, ...)
-			local index
-			index, unsafeFunc = next(callbacks)
-			if  not unsafeFunc  then  return 0  end
-			local SAVED = ARGS
-			ARGS = ...
-			local callbacksRan = 0
-			repeat
-				local ran = xpcall(xpcallThunk, errorhandler)
-				if  ran  then  callbacksRan = callbacksRan + 1  end
-				index, unsafeFunc = next(callbacks, index)
-			until not unsafeFunc
-			ARGS = SAVED
-			return callbacksRan
+	--------------------------------------------------------------------------
+	-- DispatchFixedArgs(callbacks, ...)
+	--
+	local function DispatchFixedArgs(callbacks, ...)
+		-- Avoid tailcall with `true and`. Tailcalls show up as '?' in the callstack in error reports, making it hard to identify.
+		-- We don't want that at an error catching hotspot.
+		return true and Dispatchers[select('#',...)](...)
+	end
+
+
+
+	--------------------------------------------------------------------------
+	-- DispatchDynamic(callbacks, ...)
+	--
+	-- local EMPTYTABLE = setmetatable({}, { __newindex = false })
+	--
+	local function DispatchDynamic(callbacks, ...)
+		if  not next(callbacks)  then  return 0  end
+
+		local argsCount, unsafeFunc, xpcallClosure = select('#',...)
+		-- local receiver,methodClosure
+		-- local receiver,args,universalClosure
+		-- local receiver,args,universalClosure = nil, EMPTYTABLE, function()  if receiver then  receiver[unsafeFunc]( receiver, unpack(args,1,argsCount) )  else  unsafeFunc( unpack(args,1,argsCount) )  end
+		-- local receiver,args,universalClosure = nil, {...}, function()  if args[0] then  args[0][unsafeFunc]( unpack(args,0,argsCount) )  else  unsafeFunc( unpack(args,1,argsCount) )  end
+		if  0 < argsCount  then
+			-- Pack the parameters in a closure to pass to the actual function.
+			local args = {...}
+			-- Unpack the parameters in the closure.
+			xpcallClosure = function()  unsafeFunc( unpack(args,1,argsCount) )  end
+			-- methodClosure = function()  receiver[unsafeFunc]( receiver, unpack(args,1,argsCount) )  end
+			-- universalClosure = function()  if receiver then  receiver[unsafeFunc]( receiver, unpack(args,1,argsCount) )  else  unsafeFunc( unpack(args,1,argsCount) )  end
+		-- else
+			-- methodClosure = function()  receiver[unsafeFunc]( receiver )  end
+			-- universalClosure = function()  if receiver then  receiver[unsafeFunc]( receiver )  else  unsafeFunc()  end
 		end
-		
-		return dispatcher
-	]===]
 
-	local ARGS, SAVED = {}, {}
-	for i = 1, argCount do ARGS[i], SAVED[i] = "a"..i, "s"..i end
-	sourcecode = sourcecode:gsub("SAVED", tconcat(SAVED, ",")):gsub("ARGS", tconcat(ARGS, ","))
-	local creator = assert(loadstring(sourcecode, "SafecallDispatchers[argCount="..argCount.."]"))
-	local dispatcher = creator(next, xpcall, dispatcherErrorHandler)
-	rawset(self, argCount, dispatcher)
-	return dispatcher
-end
---]]
+		local callbacksRan = 0
+		-- local errorhandler = _G.geterrorhandler()
+		for  key, callback  in  next, callbacks  do
+			unsafeFunc = callback
+			--[[
+			receiver =  type(unsafeFunc) ~= 'function'  and  key
+			local closure =  argsCount == 0 and not receiver  and  unsafeFunc  or  xpcallClosure
+			local closure =  receiver and methodClosure  or  xpcallClosure or unsafeFunc
+			local ok = xpcall(closure, errorhandler)
+			--]]
+			local ok = xpcall(xpcallClosure or unsafeFunc, errorhandler)
+			if  ok  then  callbacksRan = callbacksRan + 1  end
+		end
+		return callbacksRan
+	end
 
-setmetatable(Dispatchers, { __index = Dispatchers.CreateDispatcher })
+
+	-- Choose the Dispatch implementation to use.
+	Dispatch = DispatchFixedArgs
+
+end  -- if  select(4, GetBuildInfo()) < 80000
 
 
 
 
 --------------------------------------------------------------------------
--- CallbackHandler:New(target, RegisterName, UnregisterName, UnregisterAllName)
+-- CallbackHandler:New(sender, RegisterName, UnregisterName, UnregisterAllName)
 --
---   target            - target object to embed public APIs in
+--   sender            - target object to embed public APIs in
 --   RegisterName      - name of the callback registration API, default "RegisterCallback"
 --   UnregisterName    - name of the callback unregistration API, default "UnregisterCallback"
 --   UnregisterAllName - name of the API to unregister all callbacks, default "UnregisterAllCallbacks". false == don't publish this API.
 
-function CallbackHandler:New(target, RegisterName, UnregisterName, UnregisterAllName, OnUsed, OnUnused)
-	-- TODO: Remove this after beta has gone out
-	assert(not OnUsed and not OnUnused, "ACE-80: OnUsed/OnUnused are deprecated. Callbacks are now done to registry.OnUsed and registry.OnUnused")
-
-	RegisterName = RegisterName or "RegisterCallback"
+function CallbackHandler:New(sender, RegisterName, UnregisterName, UnregisterAllName, OnUsed, OnUnused)
+	RegisterName   = RegisterName   or "RegisterCallback"
 	UnregisterName = UnregisterName or "UnregisterCallback"
 	if UnregisterAllName==nil then	-- false is used to indicate "don't want this method"
 		UnregisterAllName = "UnregisterAllCallbacks"
 	end
 
 	-- we declare all objects and exported APIs inside this closure to quickly gain access
-	-- to e.g. function names, the "target" parameter, etc
+	-- to e.g. function names, the `sender` parameter, etc
 
 
 	-- Create the registry object
-	local events = setmetatable({}, AutoCreateTablesMeta)
+	-- local events = setmetatable({}, AutoTablesMeta)
+	local events = {}
 	local registry = { recurse=0, events=events }
 
 
 	--------------------------------------------------------------------------
-	-- registry:Fire() - fires the given event/message into the registry
+	-- registry:Fire(eventname, ...) - fires the given event/message into the registry
 	--
 	-- Event trigger part of internal registry API:
 
 	function registry:Fire(eventname, ...)
-		local callbacks = rawget(events, eventname)
+	-- function registry.Fire(registry, eventname, ...)
+		-- local events = self.events
+		local callbacks = events[eventname]
 		if not callbacks or not next(callbacks) then return nil end
 
 		local oldrecurse = registry.recurse
 		registry.recurse = oldrecurse + 1
 
-		local dispatcher = Dispatchers[select('#',...) + 1]
+		local dispatcher =  Dispatchers and Dispatchers[1 + select('#',...)]  or  Dispatch
 		local callbacksRan = dispatcher(callbacks, eventname, ...)
 
 		registry.recurse = oldrecurse
 
 		if registry.insertQueue and oldrecurse==0 then
 			-- Something in one of our callbacks wanted to register more callbacks; they got queued
-			for eventname,callbacks in pairs(registry.insertQueue) do
-				local first = not rawget(events, eventname) or not next(events[eventname])	-- test for empty before. not test for one member after. that one member may have been overwritten.
-				for receiver,callback in pairs(callbacks) do
-					events[eventname][receiver] = callback
+			for eventname,newcallbacks in pairs(registry.insertQueue) do
+				local callbacks = events[eventname]
+				local first = not callbacks or not next(callbacks)	-- test for empty before. not test for one member after. that one member may have been overwritten.
+				if not callbacks then  callbacks = {}  ;  events[eventname] = callbacks  end
+
+				for receiver,callback in pairs(newcallbacks) do
+					callbacks[receiver] = callback
 					-- fire OnUsed callback?
 					if first and registry.OnUsed then
-						registry.OnUsed(registry, target, eventname)
+						registry.OnUsed(registry, sender, eventname)
 						first = nil
 					end
 				end
@@ -276,9 +322,9 @@ function CallbackHandler:New(target, RegisterName, UnregisterName, UnregisterAll
 
 	--------------------------------------------------------------------------
 	-- Register a callback
-	-- target[RegisterName](receiver, eventname, functionrefOrMethodname[, arg])
+	-- sender[RegisterName](receiver, eventname, functionrefOrMethodname[, arg])
 	-- default:
-	-- target.RegisterCallback(receiver, eventname, functionrefOrMethodname[, arg])
+	-- sender.RegisterCallback(receiver, eventname, functionrefOrMethodname[, arg])
 	-- embedded:
 	-- receiver:[RegisterName](eventname, functionrefOrMethodname[, arg])
 	-- receiver:RegisterEvent(eventname, functionrefOrMethodname[, arg])
@@ -292,15 +338,15 @@ function CallbackHandler:New(target, RegisterName, UnregisterName, UnregisterAll
 	--   with functionref receiver can be a table or "addonId"
 	-- all with an optional arg, which, if present, gets passed as first argument (after self if calling method)
 
-	target[RegisterName] = function(receiver, eventname, method, ... --[[actually just a single arg]])
+	sender[RegisterName] = function(receiver, eventname, method, ... --[[actually just a single arg]])
 		if type(eventname) ~= "string" then
-			error("Usage: receiver:"..RegisterName.."(eventname, method[, arg]): 'eventname' - string expected.", 2)
+			error("Usage: receiver:"..RegisterName.."(eventname, method[, arg]): `eventname` - string expected, but '"..type(unsafeFunc).."' received.", 2)
 		end
 
 		method = method or eventname
 
 		if type(method) ~= "string" and type(method) ~= "function" then
-			error("Usage: receiver:"..RegisterName.."(\"eventname\", \"methodname\"): 'methodname' - string or function expected.", 2)
+			error("Usage: receiver:"..RegisterName.."(eventname, methodname[, arg]): `methodname` - string or function expected, but '"..type(unsafeFunc).."' received.", 2)
 		end
 
 		local regfunc
@@ -308,11 +354,11 @@ function CallbackHandler:New(target, RegisterName, UnregisterName, UnregisterAll
 		if type(method) == "string" then
 			-- receiver["method"] calling style
 			if type(receiver) ~= "table" then
-				error("Usage: receiver:"..RegisterName.."(\"eventname\", \"methodname\"): receiver was not a table?", 2)
-			elseif receiver == target then
-				error("Usage: receiver:"..RegisterName.."(\"eventname\", \"methodname\"): do not use Library:"..RegisterName.."(), use your own object as 'self/receiver'", 2)
+				error("Usage: receiver:"..RegisterName.."(`eventname`, `methodname`): receiver was not a table?", 2)
+			elseif receiver == sender then
+				error("Usage: receiver:"..RegisterName.."(`eventname`, `methodname`): do not use Library:"..RegisterName.."(), use your own object as self/`receiver`", 2)
 			elseif type(receiver[method]) ~= "function" then
-				error("Usage: receiver:"..RegisterName.."(\"eventname\", \"methodname\"): 'methodname' - method '"..tostring(method).."' not found on 'self/receiver'.", 2)
+				error("Usage: receiver:"..RegisterName.."(`eventname`, `methodname`): `methodname` - method '"..tostring(method).."' not found on self/`receiver`.", 2)
 			end
 
 			if select("#",...)>=1 then	-- this is not the same as testing for arg==nil!
@@ -324,7 +370,7 @@ function CallbackHandler:New(target, RegisterName, UnregisterName, UnregisterAll
 		else
 			-- function ref with receiver=object or receiver="addonId" or receiver=thread
 			if type(receiver)~="table" and type(receiver)~="string" and type(receiver)~="thread" then
-				error("Usage: target."..RegisterName.."(receiver or \"addonId\", eventname, method): 'receiver or addonId': table or string or thread expected.", 2)
+				error("Usage: sender."..RegisterName.."(receiver or 'addonId', eventname, method):  `receiver`: table or string or thread expected.", 2)
 			end
 
 			if select("#",...)>=1 then	-- this is not the same as testing for arg==nil!
@@ -335,20 +381,22 @@ function CallbackHandler:New(target, RegisterName, UnregisterName, UnregisterAll
 			end
 		end
 
-		local first = not rawget(events, eventname) or not next(events[eventname])	-- test for empty before. not test for one member after. that one member may have been overwritten.
+		local callbacks = events[eventname]
+		local first = not callbacks or not next(callbacks)	-- test for empty before. not test for one member after. that one member may have been overwritten.
+		if not callbacks then  callbacks = {}  ;  events[eventname] = callbacks  end
 
-		if events[eventname][receiver] or registry.recurse<1 then
+		if callbacks[receiver] or registry.recurse<1 then
 		-- if registry.recurse<1 then
 			-- we're overwriting an existing entry, or not currently recursing. just set it.
-			events[eventname][receiver] = regfunc
+			callbacks[receiver] = regfunc
 			-- fire OnUsed callback?
 			if registry.OnUsed and first then
-				registry.OnUsed(registry, target, eventname)
+				registry.OnUsed(registry, sender, eventname)
 			end
 		else
 			-- we're currently processing a callback in this registry, so delay the registration of this new entry!
 			-- yes, we're a bit wasteful on garbage, but this is a fringe case, so we're picking low implementation overhead over garbage efficiency
-			registry.insertQueue = registry.insertQueue or setmetatable({}, AutoCreateTablesMeta)
+			registry.insertQueue = registry.insertQueue or setmetatable({}, AutoTablesMeta)
 			registry.insertQueue[eventname][receiver] = regfunc
 		end
 	end
@@ -356,26 +404,27 @@ function CallbackHandler:New(target, RegisterName, UnregisterName, UnregisterAll
 
 	--------------------------------------------------------------------------
 	-- Unregister a callback
-	-- target[UnregisterName](receiver, eventname)
+	-- sender[UnregisterName](receiver, eventname)
 	-- default:
-	-- target.UnregisterCallback(receiver, eventname)
+	-- sender.UnregisterCallback(receiver, eventname)
 	--
 	-- eventname  is the event the handler is registered for
 	-- receiver  is the table or a string ("addonId") that identifies the event handler
 
-	target[UnregisterName] = function(receiver, eventname)
-		if not receiver or receiver == target then
-			error("Usage: receiver:"..UnregisterName.."(eventname): use your own object as 'receiver/receiver'", 2)
+	sender[UnregisterName] = function(receiver, eventname)
+		if not receiver or receiver == sender then
+			error("Usage: receiver:"..UnregisterName.."(eventname): use your own object as `receiver`/self", 2)
 		end
 		if type(eventname) ~= "string" then
-			error("Usage: receiver:"..UnregisterName.."(eventname): 'eventname' - string expected.", 2)
+			error("Usage: receiver:"..UnregisterName.."(eventname): `eventname` - string expected.", 2)
 		end
-		local callbacks = rawget(events, eventname)
+		local callbacks = events[eventname]
 		if callbacks and callbacks[receiver] then
 			callbacks[receiver] = nil
 			-- Fire OnUnused callback?
 			if registry.OnUnused and not next(callbacks) then
-				registry.OnUnused(registry, target, eventname)
+				registry.OnUnused(registry, sender, eventname)
+				LibProfiling.CallbackHandler:inc('OnUnused')
 			end
 		end
 		local queuedCallbacks = registry.insertQueue and rawget(registry.insertQueue, eventname)
@@ -387,20 +436,20 @@ function CallbackHandler:New(target, RegisterName, UnregisterName, UnregisterAll
 
 	--------------------------------------------------------------------------
 	-- OPTIONAL: Unregister all callbacks for given selfs/addonIds
-	-- target[UnregisterAllName](...receivers)
+	-- sender[UnregisterAllName](...receivers)
 	-- default:
-	-- target.UnregisterAllCallbacks(...receivers)
+	-- sender.UnregisterAllCallbacks(...receivers)
 	--
 	-- receivers  objects or "addonId"s that unregister all callbacks
 
 	if UnregisterAllName then
-		target[UnregisterAllName] = function(...)
+		sender[UnregisterAllName] = function(...)
 			local last = select("#",...)
 			if last < 1 then
-				error("Usage: target."..UnregisterAllName.."([whatFor]): missing 'receiver' or \"addonId\" to unregister events for.", 2)
+				error("Usage: sender."..UnregisterAllName.."(receiver*/addonId*): missing `receiver` or 'addonId' to unregister events for.", 2)
 			end
-			if last == 1 and ... == target then
-				error("Usage: receiver:"..UnregisterAllName.."([whatFor]): use your own object as 'self/receiver' or \"addonId\"", 2)
+			if last == 1 and ... == sender then
+				error("Usage: receiver:"..UnregisterAllName.."(): use your own object as self/`receiver`", 2)
 			end
 
 			local count = 0
@@ -420,13 +469,19 @@ function CallbackHandler:New(target, RegisterName, UnregisterName, UnregisterAll
 						count = count + 1
 						-- Fire OnUnused callback?
 						if registry.OnUnused and not next(callbacks) then
-							registry.OnUnused(registry, target, eventname)
+							registry.OnUnused(registry, sender, eventname)
 						end
 					end
 				end
 			end
 			return count
 		end
+	end
+
+	if sender.mixins then
+		sender.mixins[RegisterName]   = sender[RegisterName]    end
+		sender.mixins[UnregisterName] = sender[UnregisterName]  end
+		if UnregisterAllName then  sender.mixins[UnregisterAllName] = sender[UnregisterAllName]  end
 	end
 
 	return registry
@@ -436,4 +491,11 @@ end
 -- CallbackHandler purposefully does NOT do explicit embedding. Nor does it
 -- try to upgrade old implicit embeds since the system is selfcontained and
 -- relies on closures to work.
+
+
+---------------------------------------------------------
+-- Export CallbackHandler.Dispatch(callbacks, args...)
+--
+CallbackHandler.Dispatch = Dispatch
+
 
