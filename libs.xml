@@ -27,6 +27,7 @@ These libraries were stripped, and won't be loaded.
 
 <Script  file="LibSharedMedia-3.0\LibSharedMedia-3.0.lua" />
 <Script  file="LibDataBroker-1.1\LibDataBroker-1.1.lua" />
+<Script  file="LibDataBroker-1.1\LibDataBroker.RemoveDataObject.lua" />
 <Script  file="LibDataBrokerIcon-1.0\LibDBIcon-1.0.lua" />
 
 
