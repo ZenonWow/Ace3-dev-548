@@ -10,7 +10,10 @@
 -- @class file
 -- @name AceEvent-3.0
 -- @release $Id: AceEvent-3.0.lua 975 2010-10-23 11:26:18Z nevcairiel $
-local MAJOR, MINOR = "AceEvent-3.0", 3
+-- @patch $Id: AceEvent-3.0.lua 975.1 2019-01 Mongusius, MINOR: 3 -> 3.1
+-- 3.1 added AceEvent:IsEventRegistered(eventname)
+
+local MAJOR, MINOR = "AceEvent-3.0", 3.1
 local AceEvent = LibStub:NewLibrary(MAJOR, MINOR)
 
 if not AceEvent then return end
@@ -18,41 +21,15 @@ if not AceEvent then return end
 -- Lua APIs
 local pairs = pairs
 
-local CallbackHandler = LibStub:GetLibrary("CallbackHandler-1.0")
+local CallbackHandler = LibStub("CallbackHandler-1.0", nil, MAJOR)
+-- local CallbackHandler = LibStub:Depend(AceEvent, "CallbackHandler-1.0")
+-- local CallbackHandler = AceEvent:Depend("CallbackHandler-1.0")
 
-AceEvent.frame = AceEvent.frame or CreateFrame("Frame", "AceEvent30Frame") -- our event frame
-AceEvent.embeds = AceEvent.embeds or {} -- what objects embed this lib
-
--- APIs and registry for blizzard events, using CallbackHandler lib
-if not AceEvent.events then
-	AceEvent.events = CallbackHandler:New(AceEvent, 
-		"RegisterEvent", "UnregisterEvent", "UnregisterAllEvents")
-end
-
-function AceEvent.events:OnUsed(target, eventname) 
-	AceEvent.frame:RegisterEvent(eventname)
-end
-
-function AceEvent.events:OnUnused(target, eventname) 
-	AceEvent.frame:UnregisterEvent(eventname)
-end
+AceEvent.frame  = AceEvent.frame or CreateFrame("Frame", "AceEvent30Frame") -- our event frame
+AceEvent.embeds = AceEvent.embeds or {}  -- Clients embedding these mixins.
+AceEvent.mixins = AceEvent.mixins or {}  -- Methods embedded in clients.
 
 
--- APIs and registry for IPC messages, using CallbackHandler lib
-if not AceEvent.messages then
-	AceEvent.messages = CallbackHandler:New(AceEvent, 
-		"RegisterMessage", "UnregisterMessage", "UnregisterAllMessages"
-	)
-	AceEvent.SendMessage = AceEvent.messages.Fire
-end
-
---- embedding and embed handling
-local mixins = {
-	"RegisterEvent", "UnregisterEvent",
-	"RegisterMessage", "UnregisterMessage",
-	"SendMessage",
-	"UnregisterAllEvents", "UnregisterAllMessages",
-}
 
 --- Register for a Blizzard Event.
 -- The callback will be called with the optional `arg` as the first argument (if supplied), and the event name as the second (or first, if no arg was supplied)
@@ -69,6 +46,7 @@ local mixins = {
 -- @class function
 -- @paramsig event
 -- @param event The event to unregister
+
 
 --- Register for a custom AceEvent-internal message.
 -- The callback will be called with the optional `arg` as the first argument (if supplied), and the event name as the second (or first, if no arg was supplied)
@@ -94,13 +72,56 @@ local mixins = {
 -- @param ... Any arguments to the message
 
 
+------------------------------------------
+-- APIs and registry for blizzard events, using CallbackHandler lib
+------------------------------------------
+
+if not AceEvent.events then
+	AceEvent.events = CallbackHandler:New(AceEvent, "RegisterEvent", "UnregisterEvent", "UnregisterAllEvents")
+end
+
+function AceEvent.mixins:IsEventRegistered(eventname)
+	assert(self ~= AceEvent, "Usage: receiver:IsEventRegistered(`eventname`): do not use AceEvent:IsEventRegistered(), use your own object as self/`receiver`", 2)
+	local callbacks = rawget(AceEvent.events.events, eventname)
+	return  callbacks  and  callbacks[self] ~= nil
+end
+
+
+function AceEvent.events:OnUsed(target, eventname) 
+	AceEvent.frame:RegisterEvent(eventname)
+end
+
+function AceEvent.events:OnUnused(target, eventname) 
+	AceEvent.frame:UnregisterEvent(eventname)
+end
+
+
+
+------------------------------------------
+-- APIs and registry for IPC messages, using CallbackHandler lib
+------------------------------------------
+
+if not AceEvent.messages then
+	AceEvent.messages = CallbackHandler:New(AceEvent, "RegisterMessage", "UnregisterMessage", "UnregisterAllMessages")
+	AceEvent.mixins.SendMessage = AceEvent.messages.Fire
+end
+
+--[[ embedding and embed handling
+local mixins = {
+	"RegisterEvent",   "UnregisterEvent",   "UnregisterAllEvents",   "IsEventRegistered",
+	"RegisterMessage", "UnregisterMessage", "UnregisterAllMessages", "SendMessage",
+}--]]
+
+
+
+
 -- Embeds AceEvent into the target object making the functions from the mixins list available on target:..
 -- @param target target object to embed AceEvent in
 function AceEvent:Embed(target)
-	for k, v in pairs(mixins) do
-		target[v] = self[v]
-	end
 	self.embeds[target] = true
+	for name,method in pairs(self.mixins) do
+		target[name] = method
+	end
 	return target
 end
 

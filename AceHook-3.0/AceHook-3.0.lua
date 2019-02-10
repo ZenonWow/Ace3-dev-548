@@ -10,18 +10,28 @@
 -- @class file
 -- @name AceHook-3.0
 -- @release $Id: AceHook-3.0.lua 1090 2013-09-13 14:37:43Z nevcairiel $
-local ACEHOOK_MAJOR, ACEHOOK_MINOR = "AceHook-3.0", 7
-local AceHook, oldminor = LibStub:NewLibrary(ACEHOOK_MAJOR, ACEHOOK_MINOR)
+
+local MAJOR, MINOR = "AceHook-3.0", 7
+local AceHook, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 
 if not AceHook then return end -- No upgrade needed
 
-AceHook.embedded = AceHook.embedded or {}
-AceHook.registry = AceHook.registry or setmetatable({}, {__index = function(tbl, key) tbl[key] = {} return tbl[key] end })
+
+local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
+
+-- AutoTablesMeta: metatable that automatically creates empty inner tables when keys are first referenced.
+LibCommon.AutoTablesMeta = LibCommon.AutoTablesMeta or { __index = function(self, key)  if key ~= nil then  local v={} ; self[key]=v ; return v  end  end }
+local AutoTablesMeta = LibCommon.AutoTablesMeta
+
+AceHook.registry = AceHook.registry or setmetatable({}, AutoTablesMeta)
 AceHook.handlers = AceHook.handlers or {}
-AceHook.actives = AceHook.actives or {}
-AceHook.scripts = AceHook.scripts or {}
+AceHook.actives  = AceHook.actives  or {}
+AceHook.scripts  = AceHook.scripts  or {}
 AceHook.onceSecure = AceHook.onceSecure or {}
-AceHook.hooks = AceHook.hooks or {}
+AceHook.hooks    = AceHook.hooks    or {}
+AceHook.embedded = AceHook.embedded or {}  -- Clients embedding these mixins.
+AceHook.mixins   = AceHook.mixins   or {}  -- Methods embedded in clients.
+local mixins = AceHook.mixins
 
 -- local upvalues
 local registry = AceHook.registry
@@ -46,25 +56,24 @@ local protectedScripts = {
 	OnClick = true,
 }
 
+--[[
 -- upgrading of embedded is done at the bottom of the file
-
 local mixins = {
 	"Hook", "SecureHook",
 	"HookScript", "SecureHookScript",
 	"Unhook", "UnhookAll",
 	"IsHooked",
 	"RawHook", "RawHookScript"
-}
+}--]]
 
--- AceHook:Embed( target )
--- target (object) - target object to embed AceHook in
---
--- Embeds AceEevent into the target object making the functions from the mixins list available on target:..
+
+-- Embeds AceHook into the target object making the functions from the mixins list available on target:..
+-- @param target target object to embed AceHook in
 function AceHook:Embed( target )
-	for k, v in pairs( mixins ) do
-		target[v] = self[v]
-	end
 	self.embedded[target] = true
+	for name,method in pairs(self.mixins) do
+		target[name] = method
+	end
 	-- inject the hooks table safely
 	target.hooks = target.hooks or {}
 	return target
@@ -78,6 +87,8 @@ end
 function AceHook:OnEmbedDisable( target )
 	target:UnhookAll()
 end
+
+
 
 function createHook(self, handler, orig, secure, failsafe)
 	local uid
@@ -112,6 +123,8 @@ function createHook(self, handler, orig, secure, failsafe)
 	end
 	return uid
 end
+
+
 
 function donothing() end
 
@@ -252,6 +265,8 @@ function hook(self, obj, method, handler, script, secure, raw, forceSecure, usag
 	actives[uid], handlers[uid], scripts[uid] = true, handler, script and true or nil	
 end
 
+
+
 --- Hook a function or a method on an object.
 -- The hook created will be a "safe hook", that means that your handler will be called
 -- before the hooked function ("Pre-Hook"), and you don't have to call the original function yourself,
@@ -274,7 +289,7 @@ end
 -- function MyAddon:ActionButton_UpdateHotkeys(button, type)
 --   print(button:GetName() .. " is updating its HotKey")
 -- end
-function AceHook:Hook(object, method, handler, hookSecure)
+function mixins:Hook(object, method, handler, hookSecure)
 	if type(object) == "string" then
 		method, handler, hookSecure, object = object, method, handler, nil
 	end
@@ -313,7 +328,7 @@ end
 --     self.hooks.ActionButton_UpdateHotkeys(button, type)
 --   end
 -- end
-function AceHook:RawHook(object, method, handler, hookSecure)
+function mixins:RawHook(object, method, handler, hookSecure)
 	if type(object) == "string" then
 		method, handler, hookSecure, object = object, method, handler, nil
 	end
@@ -336,7 +351,7 @@ end
 -- @param object The object to hook a method from
 -- @param method If object was specified, the name of the method, or the name of the function to hook.
 -- @param handler The handler for the hook, a funcref or a method name. (Defaults to the name of the hooked function)
-function AceHook:SecureHook(object, method, handler)
+function mixins:SecureHook(object, method, handler)
 	if type(object) == "string" then
 		method, handler, object = object, method, nil
 	end
@@ -366,7 +381,7 @@ end
 -- function MyAddon:FriendsFrameOnShow(frame)
 --   print("The FriendsFrame was shown!")
 -- end
-function AceHook:HookScript(frame, script, handler)
+function mixins:HookScript(frame, script, handler)
 	hook(self, frame, script, handler, true, false, false, false,  "Usage: HookScript(object, method, [handler])")
 end
 
@@ -395,7 +410,7 @@ end
 --   -- Do our processing
 --   -- .. stuff
 -- end
-function AceHook:RawHookScript(frame, script, handler)
+function mixins:RawHookScript(frame, script, handler)
 	hook(self, frame, script, handler, true, false, true, false, "Usage: RawHookScript(object, method, [handler])")
 end
 
@@ -410,7 +425,7 @@ end
 -- @param frame The Frame to hook the script on
 -- @param script The script to hook
 -- @param handler The handler for the hook, a funcref or a method name. (Defaults to the name of the hooked script)
-function AceHook:SecureHookScript(frame, script, handler)
+function mixins:SecureHookScript(frame, script, handler)
 	hook(self, frame, script, handler, true, true, false, false, "Usage: SecureHookScript(object, method, [handler])")
 end
 
@@ -418,7 +433,7 @@ end
 -- @paramsig [obj], method
 -- @param obj The object or frame to unhook from
 -- @param method The name of the method, function or script to unhook from.
-function AceHook:Unhook(obj, method)
+function mixins:Unhook(obj, method)
 	local usage = "Usage: Unhook([obj], method)"
 	if type(obj) == "string" then
 		method, obj = obj, nil
@@ -476,8 +491,9 @@ function AceHook:Unhook(obj, method)
 	return true
 end
 
+
 --- Unhook all existing hooks for this addon.
-function AceHook:UnhookAll()
+function mixins:UnhookAll()
 	for key, value in pairs(registry[self]) do
 		if type(key) == "table" then
 			for method in pairs(value) do
@@ -493,7 +509,7 @@ end
 -- @paramsig [obj], method
 -- @param obj The object or frame to unhook from
 -- @param method The name of the method, function or script to unhook from.
-function AceHook:IsHooked(obj, method)
+function mixins:IsHooked(obj, method)
 	-- we don't check if registry[self] exists, this is done by evil magicks in the metatable
 	if type(obj) == "string" then
 		if registry[self][obj] and actives[registry[self][obj]] then
@@ -508,7 +524,14 @@ function AceHook:IsHooked(obj, method)
 	return false, nil
 end
 
---- Upgrade our old embedded
+
+
+-- Serpent biting its own tail.
+AceHook.embedded[AceHook] = true
+
+-- Upgrade our embedded mixins from previous revision.
 for target, v in pairs( AceHook.embedded ) do
 	AceHook:Embed( target )
 end
+
+
