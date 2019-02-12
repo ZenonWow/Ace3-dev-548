@@ -1,7 +1,7 @@
 local _G, LibStub, LIB_NAME, LIB_REVISION  =  _G, LibStub, "LibDataBroker.RemoveDataObject", 1
 assert(LibStub, 'Include "LibStub.lua" before LibDataBroker.RemoveDataObject.')
 if not LibStub:NewLibrary(LIB_NAME, LIB_REVISION) then  return  end
-
+local LibDataBroker = LibStub("LibDataBroker-1.1")
 
 
 local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon

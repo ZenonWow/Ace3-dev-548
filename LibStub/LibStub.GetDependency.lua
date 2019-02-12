@@ -37,9 +37,10 @@ if LibGetDep then
 
 		if not lib then
 			local dependents = { libname = libname }
-			lib = _G.setmetatable({ name = libname, IsNotLoaded = true, dependents = dependents} }, self.StubMeta)
+			lib = _G.setmetatable({ name = libname, IsNotLoaded = true, dependents = dependents}, self.StubMeta)
 			dependents.lib = lib
-			self.libs[libname] = lib
+			-- Avoid PreCreateLibrary's __newindex hook on LibStub.libs
+			rawset(self.libs, libname, lib)
 			self.dependents[libname] = dependents
 		end
 		lib.dependents[#lib.dependents+1] = client
@@ -60,6 +61,7 @@ if LibGetDep then
 	function LibGetDep:OnUpdate(elapsed)
 		-- One library in one OnUpdate
 		local dependents, client = self.loaded[1]
+		if not dependents then  return  end
 		for i = 1,#dependents do
 			-- Remove before executing:  if it crashes, OnUpdate will be aborted,
 			-- processing will continue in next OnUpdate() with remaining clients.
@@ -72,12 +74,14 @@ if LibGetDep then
 
 
 	if false then
-		local RunOnUpdate = setmetatable(CreateFrame('Frame'), { __call = function(RunOnUpdate, LibGetDep)  RunOnUpdate.receiver = LibGetDep  ;  RunOnUpdate:Show()  end })
+		local RunOnUpdate = CreateFrame('Frame')
+		getmetatable(RunOnUpdate).__call = function(RunOnUpdate, LibGetDep)  RunOnUpdate.receiver = LibGetDep  ;  RunOnUpdate:Show()  end
 		RunOnUpdate:SetScript('OnUpdate', function(RunOnUpdate, elapsed)  local more = RunOnUpdate.receiver:OnUpdate(elapsed)  ;  RunOnUpdate:Hide()  end)
 		RunOnUpdate:Hide()
 		LibGetDep.RunOnUpdate = RunOnUpdate
 	else
-		LibGetDep.RunOnUpdate = setmetatable(CreateFrame('Frame'), { __call = function(RunOnUpdate, LibGetDep)  RunOnUpdate.receiver = LibGetDep  ;  RunOnUpdate:SetScript('OnUpdate', RunOnUpdate.OnUpdate)  end })
+		LibGetDep.RunOnUpdate = CreateFrame('Frame')
+		getmetatable(LibGetDep.RunOnUpdate).__call = function(RunOnUpdate, LibGetDep)  RunOnUpdate.receiver = LibGetDep  ;  RunOnUpdate:SetScript('OnUpdate', RunOnUpdate.OnUpdate)  end
 		function LibGetDep.RunOnUpdate.OnUpdate(RunOnUpdate, elapsed)  local more = RunOnUpdate.receiver:OnUpdate(elapsed)  ;  if not more then RunOnUpdate:SetScript('OnUpdate', nil) end  end
 	end
 

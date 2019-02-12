@@ -12,8 +12,8 @@
 
 ### Baseline features
 
-LibStub\all.xml
 LibCommon\all.xml
+LibStub\all.xml
 
 
 ### Packaged with Ace3

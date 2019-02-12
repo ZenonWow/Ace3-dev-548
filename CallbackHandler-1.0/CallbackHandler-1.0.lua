@@ -479,8 +479,8 @@ function CallbackHandler:New(sender, RegisterName, UnregisterName, UnregisterAll
 	end
 
 	if sender.mixins then
-		sender.mixins[RegisterName]   = sender[RegisterName]    end
-		sender.mixins[UnregisterName] = sender[UnregisterName]  end
+		sender.mixins[RegisterName]   = sender[RegisterName]
+		sender.mixins[UnregisterName] = sender[UnregisterName]
 		if UnregisterAllName then  sender.mixins[UnregisterAllName] = sender[UnregisterAllName]  end
 	end
 

@@ -169,6 +169,7 @@ end
 --- Initialization and internal methods. ---
 --------------------------------------------
 
+local initmetatable = LibCommon.Require.initmetatable
 local LDB = LibDataBroker
 -- Dataobject metatables are protected from external access. `getmetatable(dataobj)()` returns an explanation:
 LDB.MetaTableNote = "This is a metatable for LDB dataobjects. Not to be modified: it is necessary to update listeners (broker displays) when dataobjects change."
@@ -251,7 +252,7 @@ function LDB:MakeProxyMetaTableMinor4()
 	-- Non-Lua:  return self.domt or= { .. }
 	self.domt = self.domt or {
 	-- Since MINOR = 5  `attributestorage[dataobj]`  is never nil. It exists from :NewDataObject(name, dataobj) until :RemoveDataObject(dataobj).
-		__index = function(dataobj, field)  return LDB.attributestorage[dataobj][field]  end
+		__index = function(dataobj, field)  return LDB.attributestorage[dataobj][field]  end,
 
 		__newindex = function(dataobj, field, newvalue)
 			local attributes = LDB.attributestorage[dataobj]
@@ -265,7 +266,7 @@ function LDB:MakeProxyMetaTableMinor4()
 			callbacks:Fire("LibDataBroker_AttributeChanged_"..name.."_"..field, name, field, newvalue, dataobj)
 			-- This is the order since MINOR = 1, tho "__key" might be preferable before "_name" as it is more generic.
 			callbacks:Fire("LibDataBroker_AttributeChanged__"..field,           name, field, newvalue, dataobj)
-		end
+		end,
 	}
 	return self.domt
 end

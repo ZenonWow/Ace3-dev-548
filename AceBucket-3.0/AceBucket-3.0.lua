@@ -50,8 +50,8 @@ if not AceBucket then return end -- No Upgrade needed
 -- Export to LibCommon:  errorhandler
 -- Import from LibCommon:
 local LibCommon = _G.LibCommon
-assert(LibCommon and LibCommon.isanytype and LibCommon.istype, "AceBucket-3.0 requires LibCommon.isanytype, LibCommon.istype")
-local isanytype, isstring, isfunc, istable = LibCommon.isanytype, LibCommon.isstring, LibCommon.isfunc, LibCommon.istable
+assert(LibCommon and LibCommon.istype2 and LibCommon.istype, "AceBucket-3.0 requires LibCommon.istype2, LibCommon.istype")
+local istype2, isstring, isfunc, istable = LibCommon.istype2, LibCommon.isstring, LibCommon.isfunc, LibCommon.istable
 
 
 -- Allow hooking _G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
@@ -203,7 +203,7 @@ local function RegisterBucket(owner, event, interval, callback, isMessage, first
 		error( MAJOR..' requires "AceEvent-3.0" and "AceTimer-3.0" loaded before.', 3 )
 	end
 	
-	if not isanytype(event, 'string', 'table') then error("Usage: MyAddon:RegisterBucketEvent(event, interval, callback[, firstInterval]): `event` - string or table expected, got "..type(event), 3) end
+	if not istype2(event, 'string', 'table') then error("Usage: MyAddon:RegisterBucketEvent(event, interval, callback[, firstInterval]): `event` - string or table expected, got "..type(event), 3) end
 	if not callback and isstring(event) then
 		callback = event
 	elseif not callback then
@@ -211,7 +211,7 @@ local function RegisterBucket(owner, event, interval, callback, isMessage, first
 	end
 	if not tonumber(interval) then  error("Usage: MyAddon:RegisterBucketEvent(event, interval, callback[, firstInterval]): `interval` - number expected, got '"..tostring(interval).."'.", 3)  end
 	if firstInterval and not tonumber(firstInterval) then  error("Usage: MyAddon:RegisterBucketEvent(event, interval, callback[, firstInterval]): `firstInterval` - number expected, got '"..tostring(firstInterval).."'.", 3)  end
-	if not isanytype(callback, 'string', 'function') then  error("Usage: MyAddon:RegisterBucketEvent(event, interval, callback[, firstInterval]): `callback` - string or function or nil expected, got "..type(callback), 3)  end
+	if not istype2(callback, 'string', 'function') then  error("Usage: MyAddon:RegisterBucketEvent(event, interval, callback[, firstInterval]): `callback` - string or function or nil expected, got "..type(callback), 3)  end
 	if not isfunc(callback) and not isfunc(owner[callback]) then  error("Usage: MyAddon:RegisterBucketEvent(event, interval, callback[, firstInterval]): `callback` - method not found on target object: '"..tostring(callback).."'.", 3)  end
 	
 	-- local bucket = next(bucketCache)
@@ -326,6 +326,10 @@ function AceBucket:UpgradeBuckets()
 	for handle, bucket in pairs(self.buckets) do
 		-- Timer started by the old BucketHandler() can be active, calling the old FireBucket() at some later time, in turn calling bucket.object:<bucket.callback>(bucket.received)
 		if bucket.timer then
+			AceTimer.CancelTimer(bucket.timer)
+			bucket.timer = nil
+		end
+
 		bucket.handler = BucketHandler
 		local owner,callback,received = bucket.object, bucket.callback, bucket.received
 		if isfunc(callback) then

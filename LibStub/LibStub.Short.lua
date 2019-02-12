@@ -27,7 +27,9 @@ if Shorty then
 
 	-- Exported to _G:  LibStubs == LibStub.Short
 	_G[LIBSTUBS_NAME] = _G[LIBSTUBS_NAME] or Shorty.shortNames
-	if _G[LIBSTUBS_NAME] ~= Shorty.shortNames then  _G.geterrorhandler()("LibStub.Short:  _G."..LIBSTUBS_NAME.." is already in use.")
+	if _G[LIBSTUBS_NAME] ~= Shorty.shortNames then
+		_G.geterrorhandler()("LibStub.Short:  _G."..LIBSTUBS_NAME.." is already in use.")
+	end
 
 
 	local function InsertCheckConflict(shortNames, lib, libname, short)
@@ -45,7 +47,7 @@ if Shorty then
 	end
 
 	-- Import the loaded libraries from LibStub.
-	for libname,lib in _G.pairs(libs) do
+	for libname,lib in _G.pairs(LibStub.libs) do
 		Shorty:LibStub_PreCreateLibrary(lib, libname)
 	end
 

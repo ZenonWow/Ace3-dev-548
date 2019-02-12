@@ -42,7 +42,7 @@ AceTimer.inactiveTimerList = AceTimer.inactiveTimerList or {}              -- Ti
 AceTimer.activeTimers      = AceTimer.activeTimers or {}                   -- Active id->timer map
 AceTimer.embeds            = AceTimer.embeds or {}                         -- Clients embedding these mixins.
 AceTimer.mixins            = AceTimer.mixins or {}                         -- Methods embedded in clients.
-local mixins = AceHook.mixins
+local mixins = AceTimer.mixins
 
 
 -- Lua APIs

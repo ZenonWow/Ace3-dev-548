@@ -56,15 +56,18 @@ local xpcall = xpcall
 
 -- Export to LibCommon:  AutoTablesMeta, errorhandler, softassert, safecall/safecallDispatch
 local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
+LibCommon.istype2 = LibCommon.istype2 or  function(value, t1, t2, t3)
+	local t = type(value)  ;  if t==t1 or t==t2 or t==t3 then return value end  ;  return nil
+end
 
 -- AutoTablesMeta: metatable that automatically creates empty inner tables when keys are first referenced.
 LibCommon.AutoTablesMeta = LibCommon.AutoTablesMeta or { __index = function(self, key)  if key ~= nil then  local v={} ; self[key]=v ; return v  end  end }
-local AutoTablesMeta = LibCommon.AutoTablesMeta
 
 -- Allow hooking _G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
 -- Avoiding tailcall: errorhandler() function would show up as "?" in stacktrace, making it harder to understand.
 LibCommon.errorhandler = LibCommon.errorhandler or  function(errorMessage)  return true and _G.geterrorhandler()(errorMessage)  end
-local errorhandler = LibCommon.errorhandler
+
+local istype2,AutoTablesMeta,errorhandler = LibCommon.istype2, LibCommon.AutoTablesMeta, LibCommon.errorhandler
 
 
 
@@ -308,7 +311,7 @@ end
 -- MyAddon = LibStub("AceAddon-3.0"):GetAddon("MyAddon")
 -- -- Get the Module
 -- MyModule = MyAddon:GetModule("MyModule")
-function mixins:GetModule(addon, name, silent)
+function mixins.GetModule(addon, name, silent)
 	if not addon.modules[name] and not silent then
 		error( format("Usage: MyAddon:GetModule(name, silent): `name` - Cannot find module '%s'.", tostring(name)), 2 )
 	end
@@ -335,15 +338,18 @@ local function ReturnTrue() return true end
 -- -- Create a module with a prototype
 -- local prototype = { OnEnable = function(module) print("OnEnable called!") end }
 -- MyModule = MyAddon:NewModule("MyModule", prototype, "AceEvent-3.0", "AceHook-3.0")
-function mixins:NewModule(addon, moduleName, ...)
+function mixins.NewModule(addon, moduleName, ...)
 	local prototype = ...
 	local prototypeSet =  1 <= select('#',...)  and  type(prototype) ~= 'string'
-	if type(moduleName)~='string' then  error( "Usage: MyAddon:NewModule(moduleName, [prototype, [lib, lib, lib, ...]): `moduleName` - string expected got, "..type(moduleName) , 2 )  end
-	if prototypeSet and not isanytype(prototype, 'table', 'function') then
+	if type(moduleName)~='string' then
+		error( "Usage: MyAddon:NewModule(moduleName, [prototype, [lib, lib, lib, ...]): `moduleName` - string expected, got "..type(moduleName) , 2 )
+	end
+	if prototypeSet and not istype2(prototype, 'table', 'function') then
 		error( "Usage: MyAddon:NewModule(moduleName, [prototype, [lib, lib, lib, ...]): `prototype` - table/function/nil (prototype), string (lib) expected, got "..type(prototype) , 2 )
 	end
-	
-	if addon.modules[moduleName] then  error( 'Usage: MyAddon:NewModule(moduleName, [prototype, [lib, lib, lib, ...]):  Module "'..moduleName..'" already exists.', moduleName), 2 )  end
+	if addon.modules[moduleName] then
+		error( 'Usage: MyAddon:NewModule(moduleName, [prototype, [lib, lib, lib, ...]):  Module "'..moduleName..'" already exists.', 2 )
+	end
 	
 	local module = { IsModule = ReturnTrue, moduleName = moduleName }
 	-- SetEnabledState(module, addon.defaultModuleState)
@@ -384,7 +390,7 @@ end
 -- @usage 
 -- print(MyAddon:GetName())
 -- -- prints "MyAddon"
-function mixins:GetName(addonOrModule)
+function mixins.GetName(addonOrModule)
 	return addonOrModule.moduleName or addonOrModule.name
 end
 
@@ -410,7 +416,7 @@ end
 -- MyAddon = LibStub("AceAddon-3.0"):GetAddon("MyAddon")
 -- MyModule = MyAddon:GetModule("MyModule")
 -- MyModule:Enable()
-function mixins:Enable(addonOrModule)
+function mixins.Enable(addonOrModule)
 	addonOrModule:SetEnabledState(true)
 
 	-- nevcairiel 2013-04-27: don't enable an addon/module if its queued for init still
@@ -430,7 +436,7 @@ end
 -- -- Disable MyAddon
 -- MyAddon = LibStub("AceAddon-3.0"):GetAddon("MyAddon")
 -- MyAddon:Disable()
-function mixins:Disable(addonOrModule)
+function mixins.Disable(addonOrModule)
 	addonOrModule:SetEnabledState(false)
 	return AceAddon:DisableAddon(addonOrModule)
 end
@@ -448,7 +454,7 @@ end
 -- -- Enable MyModule using the short-hand
 -- MyAddon = LibStub("AceAddon-3.0"):GetAddon("MyAddon")
 -- MyAddon:EnableModule("MyModule")
-function mixins:EnableModule(addon, name)
+function mixins.EnableModule(addon, name)
 	local module = addon:GetModule( name )
 	return module:Enable()
 end
@@ -466,7 +472,7 @@ end
 -- -- Disable MyModule using the short-hand
 -- MyAddon = LibStub("AceAddon-3.0"):GetAddon("MyAddon")
 -- MyAddon:DisableModule("MyModule")
-function mixins:DisableModule(addon, name)
+function mixins.DisableModule(addon, name)
 	local module = addon:GetModule( name )
 	return module:Disable()
 end
@@ -483,7 +489,7 @@ end
 -- MyAddon:SetDefaultModuleLibraries("AceEvent-3.0")
 -- -- Create a module
 -- MyModule = MyAddon:NewModule("MyModule")
-function mixins:SetDefaultModuleLibraries(addon, ...)
+function mixins.SetDefaultModuleLibraries(addon, ...)
 	if next(addon.modules) then
 		error("Usage: SetDefaultModuleLibraries(...): cannot change the module defaults after a module has been registered.", 2)
 	end
@@ -503,7 +509,7 @@ end
 -- -- Create a module and explicilty enable it
 -- MyModule = MyAddon:NewModule("MyModule")
 -- MyModule:Enable()
-function mixins:SetDefaultModuleState(addon, state)
+function mixins.SetDefaultModuleState(addon, state)
 	if next(addon.modules) then
 		error("Usage: SetDefaultModuleState(state): cannot change the module defaults after a module has been registered.", 2)
 	end
@@ -525,7 +531,7 @@ end
 -- MyModule:Enable()
 -- -- should print "OnEnable called!" now
 -- @see NewModule
-function mixins:SetDefaultModulePrototype(addon, prototype)
+function mixins.SetDefaultModulePrototype(addon, prototype)
 	if next(addon.modules) then
 		error("Usage: SetDefaultModulePrototype(prototype): cannot change the module defaults after a module has been registered.", 2)
 	end
@@ -540,7 +546,7 @@ end
 -- @name //addon//:SetEnabledState
 -- @paramsig state
 -- @param state the state of an addon or module  (enabled=true, disabled=false)
-function mixins:SetEnabledState(addonOrModule, state)
+function mixins.SetEnabledState(addonOrModule, state)
 	addonOrModule.enabledState = state
 end
 
@@ -553,12 +559,12 @@ end
 -- for name, module in MyAddon:IterateModules() do
 --    module:Enable()
 -- end
-function mixins:IterateModules(addon) return pairs(addon.modules) end
+function mixins.IterateModules(addon) return pairs(addon.modules) end
 
 -- Returns an iterator of all embeds in the addon
 -- @name //addon//:IterateEmbeds
 -- @paramsig 
-function mixins:IterateEmbeds(addonOrModule) return pairs(AceAddon.embeds[addonOrModule]) end
+function mixins.IterateEmbeds(addonOrModule) return pairs(AceAddon.embeds[addonOrModule]) end
 
 --- Query the enabledState of an addon.
 -- @name //addon//:IsEnabled
@@ -567,9 +573,9 @@ function mixins:IterateEmbeds(addonOrModule) return pairs(AceAddon.embeds[addonO
 -- if MyAddon:IsEnabled() then
 --     MyAddon:Disable()
 -- end
-function mixins:IsEnabled(addonOrModule) return addonOrModule.enabledState end
+function mixins.IsEnabled(addonOrModule) return addonOrModule.enabledState end
 
-function mixins:SetAddonEnv(addonOrModule, addonName, env)
+function mixins.SetAddonEnv(addonOrModule, addonName, env)
 	addonOrModule.folderName = addonName
 	addonOrModule._ENV = env
 	return addonOrModule    -- for method chaining

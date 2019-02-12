@@ -22,13 +22,15 @@ local LibStub = _G[LIBSTUB_NAME] or { minor = 0, libs = {}, minors = {} }  --, d
 -- Check if current version of LibStub is obsolete.
 if  (LibStub.minor or 0) < LIBSTUB_REVISION  then
 	_G[LIBSTUB_NAME] = LibStub
+	LibStub.name  = LIBSTUB_NAME
 	LibStub.minor = LIBSTUB_REVISION
 	-- LibStub.libs, LibStub.minors  =  LibStub.libs or {}, LibStub.minors or {}
-	LibStub.libs.LibStub, LibStub.minors.LibStub  =  LibStub, LIBSTUB_REVISION
+	-- LibStub.libs.LibStub, LibStub.minors.LibStub  =  LibStub, LIBSTUB_REVISION
 
 	-- Upvalued Lua globals:
 	local type,tonumber,tostring,strmatch,setmetatable = type,tonumber,tostring,string.match,setmetatable
-	local function torevision(version)  return  tonumber(version)  or  type(version)=='string' and tonumber(strmatch(version, "%d+")) )  end
+	local function torevision(version)  return  tonumber(version)  or  type(version)=='string' and tonumber(strmatch(version, "%d+"))  end
+	LibStub.torevision = torevision
 
 	-----------------------------------------------------------------------------
 	--- LibStub:NewLibrary(name, revision): Declare a library implementation.
@@ -49,13 +51,14 @@ if  (LibStub.minor or 0) < LIBSTUB_REVISION  then
 		local oldrevision = self.minors[name]
 		if oldrevision and oldrevision >= revision then  return nil  end
 
+		print('NewLibrary:', name, revision)
 		local lib = self.libs[name] or {}
+		-- self.libs[name], self.minors[name] = lib, revision
 		self.libs[name] = lib
 		-- Optimized path to skip  __newindex()  call in  self.minors'  metatable.
 		-- The minimal LibStub.NewLibrary.lua does not have _newminor(), neither this optimization.
-		if not oldrevision then  self._newminor(minors, name, revision)  end
-		-- self.libs[name], self.minors[name] = lib, revision
-		return lib, oldrevision or 0
+		if not oldrevision then  self._newminor(self.minors, name, revision)  end
+		return lib, oldrevision
 	end
 
 	-- Function to hook by LibStub.PreCreateLibrary. Signature mimics `getmetatable(minors).__newindex(..)` to hook MINOR=2 with the same function.
@@ -74,12 +77,13 @@ if  (LibStub.minor or 0) < LIBSTUB_REVISION  then
 	-- @return the library object if found.
 	function LibStub:GetLibrary(name, optional)
 		local lib = self.libs[name]
-		if lib then  return lib, self.minors[name]
+		if lib then  return lib, self.minors[name]  end
 		if  optional == true  or  type(optional)=='number'  then  return nil  end
 		if type(optional)=='table' then  optional = tostring(optional.name or optional)  end
-		if type(optional)=='string' then  _G.error(optional..' requires "'..tostring(name)..'" library loaded before.", 2)
+
+		if type(optional)=='string' then  _G.error(optional..' requires "'..tostring(name)..'" library loaded before.', 2)
 		elseif optional then  return nil    -- Just in case non-boolean `optional` parameter was passed, eg. the number 1.
-		else  _G.error('LibStub:GetLibrary("'..tostring(name)..'"):  library is not loaded at this point.", 2)
+		else  _G.error('LibStub:GetLibrary("'..tostring(name)..'"):  library is not loaded at this point.', 2)
 		end
 	end
 
@@ -87,6 +91,8 @@ if  (LibStub.minor or 0) < LIBSTUB_REVISION  then
 	local metatable = _G.getmetatable(LibStub)
 	if not metatable then  metatable = {}  ;  setmetatable(LibStub, metatable)  end
 	metatable.__call = LibStub.GetLibrary
+	-- Protect from setmetatable(), while getmetatable() works as usual.
+	metatable.__metatable = metatable
 
 
 	-----------------------------------------------------------------------------
