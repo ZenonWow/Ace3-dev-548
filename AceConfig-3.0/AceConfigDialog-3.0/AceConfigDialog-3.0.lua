@@ -588,7 +588,15 @@ local function OptionOnMouseOver(widget, event)
 		GameTooltip:AddLine(user.text,0.5, 0.5, 0.8, 1)
 	end	
 	if type(desc) == "string" then
-		GameTooltip:AddLine(desc, 1, 1, 1, 1)
+		-- GameTooltip:AddLine(desc, 1, 1, 1, 1)
+		-- https://www.wowace.com/projects/ace3/issues/336  --  Hyperlinks in GameTooltip #336  --  properly matching the link.
+		-- local link = desc:match("|H.-:.-|h")
+		local link = desc:match("|H.-:.-|h.-|h")
+		if link then
+				GameTooltip:SetHyperlink(link)
+		else
+				GameTooltip:AddLine(desc, 1, 1, 1, 1)
+		end
 	end
 	if type(usage) == "string" then
 		GameTooltip:AddLine("Usage: "..usage, NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, 1)
