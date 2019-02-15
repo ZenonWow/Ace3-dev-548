@@ -11,19 +11,20 @@
 -- Patches should not go over .9, that would confuse the version comparison:  x.10 < x.9  evaluates as smaller.
 
 -- GLOBALS: <none>
--- Upvalued:  type,tonumber,tostring,strmatch,setmetatable
--- Used from _G:  error,geterrorhandler,getmetatable,pairs
 -- Exported to _G:  LibStub
+-- Used from _G:  error,geterrorhandler,getmetatable,pairs
+-- Upvalued:  type,tonumber,tostring,strmatch,setmetatable
 
 
 local _G, LIBSTUB_NAME, LIBSTUB_REVISION = _G, LIBSTUB_NAME or 'LibStub', 3
-local LibStub = _G[LIBSTUB_NAME] or { minor = 0, libs = {}, minors = {} }  --, dependents = {} }
+local LibStub = _G[LIBSTUB_NAME] or { minor = 0, libs = {}, stubs = {}, minors = {} }  --, dependents = {} }
 
 -- Check if current version of LibStub is obsolete.
 if  (LibStub.minor or 0) < LIBSTUB_REVISION  then
 	_G[LIBSTUB_NAME] = LibStub
 	LibStub.name  = LIBSTUB_NAME
 	LibStub.minor = LIBSTUB_REVISION
+	LibStub.stubs = LibStub.stubs or {}
 	-- LibStub.libs, LibStub.minors  =  LibStub.libs or {}, LibStub.minors or {}
 	-- LibStub.libs.LibStub, LibStub.minors.LibStub  =  LibStub, LIBSTUB_REVISION
 
@@ -41,7 +42,9 @@ if  (LibStub.minor or 0) < LIBSTUB_REVISION  then
 	-- @return old library object (empty table at first) if upgrade is needed.
 	--
 	function LibStub:NewLibrary(name, revision, _, _, stackdepth)
-		if type(name)~='string' then  _G.error( "Usage: LibStub:NewLibrary(name, revision):  `name` - string expected, got "..type(name) , (stackdepth or 1)+1 )  end
+		if type(name)~='string' then
+			_G.error( "Usage: LibStub:NewLibrary(name, revision):  `name` - string expected, got "..type(name) , (stackdepth or 1)+1 )
+		end
 
 		revision = torevision(revision)
 		if not revision then
@@ -51,19 +54,20 @@ if  (LibStub.minor or 0) < LIBSTUB_REVISION  then
 		local oldrevision = self.minors[name]
 		if oldrevision and oldrevision >= revision then  return nil  end
 
-		print('NewLibrary:', name, revision)
-		local lib = self.libs[name] or {}
-		-- self.libs[name], self.minors[name] = lib, revision
-		self.libs[name] = lib
-		-- Optimized path to skip  __newindex()  call in  self.minors'  metatable.
-		-- The minimal LibStub.NewLibrary.lua does not have _newminor(), neither this optimization.
-		if not oldrevision then  self._newminor(self.minors, name, revision)  end
+		if _G.DEVMODE and _G.DEVMODE.LibStub then  _G.print("LibStub:NewLibrary():", name, "  rev:", oldrevision, "->", revision, "  @", _G.debugstack(2,1,0):gsub(": .*", ""):gsub("^Interface\\AddOns\\", ""):gsub("^%.%.[^:]*Ons\\", "") )  end
+		-- Huh that was tedious. Now, Dear-lua, did i forget the end at the end? ;-)
+		local lib =  self.libs[name]  or  self.stubs[name]  or  {}
+		self.libs[name], self.minors[name] = lib, revision
+		-- The minimal LibStub.NewLibrary.lua does not have this call.
+		LibStub:BeforeDefineLibrary(lib, name, revision, oldrevision)
 		return lib, oldrevision
 	end
 
-	-- Function to hook by LibStub.PreCreateLibrary. Signature mimics `getmetatable(minors).__newindex(..)` to hook MINOR=2 with the same function.
-	LibStub._newminor = LibStub._newminor  or  function(minors, name, revision)  minors[name] = revision  end
-	-- LibStub._PreCreateLibrary = LibStub._PreCreateLibrary  or  function()  end
+
+	function LibStub._donothing()  end
+	-----------------------------------------------------------------------------
+	-- Function to hook by LibStub.BeforeDefineLibrary.
+	LibStub.BeforeDefineLibrary = LibStub.BeforeDefineLibrary  or  LibStub._donothing
 
 
 	-----------------------------------------------------------------------------

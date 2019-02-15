@@ -7,11 +7,10 @@
 -- Does _not_ raise an error if the library is not found.
 
 -- GLOBALS:
--- Used from _G:  pairs, next, getmetatable, setmetatable, geterrorhandler
--- Used from LibCommon:
--- Upvalued Lua globals:  type,getmetatable,setmetatable,rawset
 -- Exported to _G:  LibStubs
--- Exported to LibCommon:  initmetatable
+-- Used from LibCommon:
+-- Used from _G:  pairs, next, getmetatable, setmetatable, geterrorhandler
+-- Upvalued Lua globals:  type,getmetatable,setmetatable,rawset
 
 
 local _G, LIBSTUBS_NAME = _G, LIBSTUBS_NAME or 'LibStubs'
@@ -32,23 +31,31 @@ if Shorty then
 	end
 
 
-	local function InsertCheckConflict(shortNames, lib, libname, short)
+	local function InsertCheckConflict(shortNames, lib, name, short)
+		-- Remove '-','.' so the resulting name is a valid lua variable name.
+		name = name:gsub("[%-%.]", "")
 		local conflict = shortNames[short]
-		if  conflict == lib  then  return  end
-		if  conflict  and  libname <= (conflict.libname or "")  then  return  end
+		if conflict == lib then  return  end
+		if _G.DEVMODE then  _G.LibCommon.softassert(not conflict, 'Warn: LibStub.Short:  There should be no conflicting shortname, and there it is: "'..name..'" vs "'..tostring(conflict.name)..'"."')  end
+		if  conflict  and  name <= (conflict.name or "")  then  return  end
 		shortNames[short] = lib
 	end
 
-	function Shorty:LibStub_PreCreateLibrary(lib, libname)
-		-- Remove '-','.'
-		InsertCheckConflict(self.shortNames, lib, libname, libname:gsub("[%-%.]", "") )
-		-- Remove version: "-n.n" and remove '-','.'
-		InsertCheckConflict(self.shortNames, lib, libname, libname:gsub("%-[%.%d]+$", ""):gsub("[%-%.]", "") )
+	function Shorty:BeforeDefineLibrary(lib, name, revision, oldrevision)
+		if oldrevision then  return  end    -- Do it only at first definition.
+		-- Insert with subversion, eg.:  AceAddon30
+		-- InsertCheckConflict(self.shortNames, lib, name, name)
+		-- Remove ".0" subversion, eg.:  AceAddon3,  CallbackHandler1,  but LibDataBroker11
+		local nameNoSub0 = name:gsub("%.0$", "")
+		InsertCheckConflict(self.shortNames, lib, name, nameNoSub0)
+		-- Remove "-1" and "-1.0" version completely, eg.:  CallbackHandler-1.0 -> CallbackHandler
+		local nameNoMajor1 = nameNoSub0:gsub("%-1$", "")
+		InsertCheckConflict(self.shortNames, lib, name, nameNoMajor1)
 	end
 
 	-- Import the loaded libraries from LibStub.
-	for libname,lib in _G.pairs(LibStub.libs) do
-		Shorty:LibStub_PreCreateLibrary(lib, libname)
+	for name,lib in _G.pairs(LibStub.libs) do
+		Shorty:BeforeDefineLibrary(lib, name)
 	end
 
 	assert(LibStub.RegisterCallback, 'LibStub.Short requires "LibStub.PreCreateLibrary" loaded before.')

@@ -33,14 +33,15 @@ if LibGetDep then
 	function LibStub:GetDependency(client, libname, stackdepth)
 		if type(libname)~='string' then  error( "Usage: LibStub:GetDependency(client, libname):  `libname` - expected string, got "..type(libname) , (stackdepth or 1)+1)  end
 		local lib, revision  =  self.libs[libname], self.minors[libname]
-		if revision then  return lib  end
+		if lib then  return lib  end
 
+		lib = self.stubs[libname]
 		if not lib then
 			local dependents = { libname = libname }
 			lib = _G.setmetatable({ name = libname, IsNotLoaded = true, dependents = dependents}, self.StubMeta)
 			dependents.lib = lib
 			-- Avoid PreCreateLibrary's __newindex hook on LibStub.libs
-			rawset(self.libs, libname, lib)
+			self.stubs[libname] = lib
 			self.dependents[libname] = dependents
 		end
 		lib.dependents[#lib.dependents+1] = client
@@ -50,8 +51,9 @@ if LibGetDep then
 
 	-----------------------------------------------------------------------------
 	-- On first load:  replace the StubMeta metatable with LibMeta,  clear IsNotLoaded flag
-	function LibGetDep:LibStub_PreCreateLibrary(lib, name)
+	function LibGetDep:BeforeDefineLibrary(lib, name)
 		-- if _G.getmetatable(lib) == self.libMeta then  _G.geterrorhandler()("LibStub:_PreCreateLibrary() called twice: from NewLibrary() and LibStub.minors metatable.")  ;  return  end
+		LibStub.stubs[libname] = nil
 		self.loaded[#self.loaded+1] = LibStub.dependents[name]
 		LibStub.dependents[name], lib.dependents, lib.IsNotLoaded = nil,nil,nil
 		self:RunOnUpdate()
