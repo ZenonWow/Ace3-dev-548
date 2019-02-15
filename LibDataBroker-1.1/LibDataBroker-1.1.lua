@@ -38,7 +38,7 @@ local softassert,assertf,asserttype = LibCommon.softassert,LibCommon.assertf,Lib
 --
 function LibDataBroker:NewDataObject(name, dataobj)
 	-- if self.proxystorage[name] then  return false  end
-	-- Accept repeated registration:  merge fields from provided object  and return the registered dataobj (proxy).
+	-- Accept repeated registration:  merge fields from provided object  and return the previously registered dataobj (proxy).
 	local existing = self.proxystorage[name]
 	-- Save name to `dataobj.name` since MINOR = 5. Not guaranteed to remain the same, clients can change it.
 	-- local attributes = existing and self.attributestorage[existing]  or  { name = name }
@@ -46,7 +46,7 @@ function LibDataBroker:NewDataObject(name, dataobj)
 
 	if dataobj then
 		asserttype(dataobj, 'table', "Usage: LDB:NewDataObject(name, dataobject): `dataobject` - ")
-		-- Move fields from the dataobject to the attributestorage.
+		-- Move fields from the dataobject to the attributestorage:  merge(attributes, dataobj)
 		for k,v in pairs(dataobj) do  attributes[k] = v  end
 		wipe(dataobj)
 	end

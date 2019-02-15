@@ -1,9 +1,10 @@
 --[[
-Name: DBIcon-1.0
+Name: LibMinimapIcon
+Former Name: DBIcon-1.0
 Revision: $Rev: 34 $
 Author(s): Rabbit (rabbit.magtheridon@gmail.com)
 Description: Allows addons to register to recieve a lightweight minimap icon as an alternative to more heavy LDB displays.
-Dependencies: LibStub
+Dependencies: LibStub, LibDataBroker-1.1
 License: GPL v2 or later.
 ]]
 
@@ -37,6 +38,10 @@ assert(LibStub, MAJOR .. " requires LibStub.")
 local ldb = LibStub("LibDataBroker-1.1", nil, MAJOR)
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
+
+-- Import as new name  "LibMinimapIcon"
+LibStub.libs.LibMinimapIcon = lib
+LibStub.minors.LibMinimapIcon = MINOR
 
 lib.disabled = lib.disabled or nil
 lib.objects = lib.objects or {}

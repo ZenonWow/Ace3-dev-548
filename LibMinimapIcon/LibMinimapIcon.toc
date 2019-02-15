@@ -1,6 +1,6 @@
 ## Interface: 50400
-## Title: Lib: DataBrokerIcon-1.0
-## Notes: Allows addons to register to recieve a lightweight minimap icon as an alternative to more heavy LDB displays.
+## Title: Lib: MinimapIcon
+## Notes: Formerly known as LibDBIcon-1.0.  Allows addons to register to recieve a lightweight minimap icon as an alternative to more heavy LDB displays.
 ## Author: Rabbit
 ## X-Credits: copystring for Barrel.
 ## X-eMail: rabbit.magtheridon@mail.com
@@ -20,5 +20,5 @@
 # CallbackHandler-1.0\CallbackHandler-1.0.lua
 # LibDataBroker-1.1\LibDataBroker-1.1.lua
 
-LibDBIcon-1.0.lua
+LibMinimapIcon.lua
 

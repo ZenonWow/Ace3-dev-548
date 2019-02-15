@@ -2,7 +2,7 @@
 ## Title: Lib: DataBroker-1.1
 ## Version: 1.1
 ## Notes: A central registry for addons looking for something to display their data.
-## Author: Tekkub Stoutwrite
+## Author: Tekkub Stoutwrithe
 ## X-Credits: Elkano's DataBroker-1.0
 ## X-Website: http://www.wowace.com
 ## X-Category: Library
