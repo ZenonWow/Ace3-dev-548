@@ -30,11 +30,11 @@ if LibPreCreate then
 
 		local meta = getmetatable(lib)
 		if not meta then  meta={} ; setmetatable(lib, meta)  end
-		-- local meta = _G.LibCommon.initmetatable(lib)
+		-- local meta = _G.LibShared.initmetatable(lib)
 		if type(meta)=='table' then
 			meta.__tostring = meta.__tostring  or  LibStub.LibMeta.__tostring
 		end
-		-- _G.LibCommon.initmetatableField(lib, '__tostring', LibStub.LibMeta.__tostring)
+		-- _G.LibShared.initmetatableField(lib, '__tostring', LibStub.LibMeta.__tostring)
 
 		-- Dispatch to callbacks. Should be safecall, will be, probably.
 		for  i,receiver  in ipairs(self.callbacks) do

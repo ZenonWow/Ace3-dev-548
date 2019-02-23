@@ -54,20 +54,20 @@ local xpcall = xpcall
 -- GLOBALS: LibStub, IsLoggedIn, geterrorhandler
 
 
--- Export to LibCommon:  AutoTablesMeta, errorhandler, softassert, safecall/safecallDispatch
-local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
-LibCommon.istype2 = LibCommon.istype2 or  function(value, t1, t2, t3)
+-- Export to LibShared:  AutoTablesMeta, errorhandler, softassert, safecall/safecallDispatch
+local LibShared = _G.LibShared or {}  ;  _G.LibShared = LibShared
+LibShared.istype2 = LibShared.istype2 or  function(value, t1, t2, t3)
 	local t = type(value)  ;  if t==t1 or t==t2 or t==t3 then return value end  ;  return nil
 end
 
 -- AutoTablesMeta: metatable that automatically creates empty inner tables when keys are first referenced.
-LibCommon.AutoTablesMeta = LibCommon.AutoTablesMeta or { __index = function(self, key)  if key ~= nil then  local v={} ; self[key]=v ; return v  end  end }
+LibShared.AutoTablesMeta = LibShared.AutoTablesMeta or { __index = function(self, key)  if key ~= nil then  local v={} ; self[key]=v ; return v  end  end }
 
 -- Allow hooking _G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
 -- Avoiding tailcall: errorhandler() function would show up as "?" in stacktrace, making it harder to understand.
-LibCommon.errorhandler = LibCommon.errorhandler or  function(errorMessage)  return true and _G.geterrorhandler()(errorMessage)  end
+LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  return true and _G.geterrorhandler()(errorMessage)  end
 
-local istype2,AutoTablesMeta,errorhandler = LibCommon.istype2, LibCommon.AutoTablesMeta, LibCommon.errorhandler
+local istype2,AutoTablesMeta,errorhandler = LibShared.istype2, LibShared.AutoTablesMeta, LibShared.errorhandler
 
 
 
@@ -78,11 +78,11 @@ if  select(4, GetBuildInfo()) >= 80000  then
 	-- https://us.battle.net/forums/en/wow/topic/20762318007
 	-- • xpcall now accepts arguments like pcall does
 	--
-	LibCommon.safecall = LibCommon.safecall or  function(unsafeFunc, ...)  return xpcall(unsafeFunc, errorhandler, ...)  end
+	LibShared.safecall = LibShared.safecall or  function(unsafeFunc, ...)  return xpcall(unsafeFunc, errorhandler, ...)  end
 
-elseif not LibCommon.safecallDispatch then
+elseif not LibShared.safecallDispatch then
 
-	-- Export  LibCommon.safecallDispatch
+	-- Export  LibShared.safecallDispatch
 	local SafecallDispatchers = {}
 	function SafecallDispatchers:CreateDispatcher(argCount)
 		local sourcecode = [===[
@@ -119,16 +119,16 @@ elseif not LibCommon.safecallDispatch then
 		--return xpcall(unsafeFunc, _G.geterrorhandler())
 	end
 
-	--- LibCommon. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
-	LibCommon.softassert = LibCommon.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+	--- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
+	LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
 
-	function LibCommon.safecallDispatch(unsafeFunc, ...)
+	function LibShared.safecallDispatch(unsafeFunc, ...)
 		-- we check to see if unsafeFunc is actually a function here and don't error when it isn't
 		-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
 		-- present execution should continue without hinderance
 		if  not unsafeFunc  then  return  end
 		if  type(unsafeFunc)~='function'  then
-			LibCommon.softassert(false, "Usage: safecall(unsafeFunc):  function expected, got "..type(unsafeFunc))
+			LibShared.softassert(false, "Usage: safecall(unsafeFunc):  function expected, got "..type(unsafeFunc))
 			return
 		end
 
@@ -137,12 +137,12 @@ elseif not LibCommon.safecallDispatch then
 		return dispatcher(unsafeFunc, ...)
 	end
 
-end -- LibCommon.safecallDispatch
+end -- LibShared.safecallDispatch
 
 
 
 -- Choose the safecall implementation to use.
-local safecall = LibCommon.safecall or LibCommon.safecallDispatch
+local safecall = LibShared.safecall or LibShared.safecallDispatch
 -- Stack depth offset for error() calls.
 local errorOffset = 1
 -- Forward declaration

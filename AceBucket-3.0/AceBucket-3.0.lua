@@ -47,17 +47,17 @@ local _G, AceBucket, oldminor = _G, LibStub:NewLibrary(MAJOR, MINOR)
 if not AceBucket then return end -- No Upgrade needed
 
 
--- Export to LibCommon:  errorhandler
--- Import from LibCommon:
-local LibCommon = _G.LibCommon
-assert(LibCommon and LibCommon.istype2 and LibCommon.istype, "AceBucket-3.0 requires LibCommon.istype2, LibCommon.istype")
-local istype2, isstring, isfunc, istable = LibCommon.istype2, LibCommon.isstring, LibCommon.isfunc, LibCommon.istable
+-- Export to LibShared:  errorhandler
+-- Import from LibShared:
+local LibShared = _G.LibShared
+assert(LibShared and LibShared.istype2 and LibShared.istype, "AceBucket-3.0 requires LibShared.istype2, LibShared.istype")
+local istype2, isstring, isfunc, istable = LibShared.istype2, LibShared.isstring, LibShared.isfunc, LibShared.istable
 
 
 -- Allow hooking _G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
 -- Avoiding tailcall: errorhandler() function would show up as "?" in stacktrace, making it harder to understand.
-LibCommon.errorhandler = LibCommon.errorhandler or  function(errorMessage)  return true and _G.geterrorhandler()(errorMessage)  end
-local errorhandler = LibCommon.errorhandler
+LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  return true and _G.geterrorhandler()(errorMessage)  end
+local errorhandler = LibShared.errorhandler
 	
 
 -- the libraries will be lazyly bound later, to avoid errors due to loading order issues

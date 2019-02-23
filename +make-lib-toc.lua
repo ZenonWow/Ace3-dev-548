@@ -39,18 +39,18 @@ local addons = {
 -- "LibDBIcon-1.0",  -- from LibDBIcon-1.0-r38-release.zip
 -- "LibDataBrokerIcon-1.0",  -- from LibDBIcon-1.0-r38-release.zip
 -- "LibSharedMedia-3.0",  -- from LibSharedMedia-3.0-r87.zip
--- "LibCommon",  -- custom LibCommon.toc
+-- "LibShared",  -- custom LibShared.toc
 -- "LibStub",  -- from LibStub-1.0.2-40200.zip
 }
 
 
 
 local D2 = "LibStub, CallbackHandler-1.0"
-local D3 = "LibStub, LibCommon, CallbackHandler-1.0"
+local D3 = "LibStub, LibShared, CallbackHandler-1.0"
 local dependencies = {
-	["LibCommon"]                        = "",
+	["LibShared"]                        = "",
 	["LibStub"]                          = "",
-	["CallbackHandler-1.0"]              = "LibStub, LibCommon",
+	["CallbackHandler-1.0"]              = "LibStub, LibShared",
 	["LibDataBroker-1.1"]                = D3,
 	["LibDBIcon-1.0"]                    = D2..",   LibDataBroker-1.1",
 
@@ -95,8 +95,8 @@ LibStub.Short.lua
 LibStub.SetEnv.lua
 ]==]
 
-morefiles["LibCommon"] = [==[
-# LibCommon-all.lua
+morefiles["LibShared"] = [==[
+# LibShared-all.lua
 parts\all.xml
 ]==]
 

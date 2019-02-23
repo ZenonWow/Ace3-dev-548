@@ -119,48 +119,48 @@ end
   Metaprogramming functions
 ---------------------------------------------------------------------------]]
 
-local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
+local LibShared = _G.LibShared or {}  ;  _G.LibShared = LibShared
 
 -------------------------------------------------
---- LibCommon. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
-LibCommon.softassert = LibCommon.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+--- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
+LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
 
 -------------------------------------------------
---- LibCommon. softassertf( condition, messageFormat, formatParameter...):  Report error, then continue execution, _unlike_ assert(). Formatted error message.
-LibCommon.softassertf = LibCommon.softassertf  or  function(ok, messageFormat, ...)
+--- LibShared. softassertf( condition, messageFormat, formatParameter...):  Report error, then continue execution, _unlike_ assert(). Formatted error message.
+LibShared.softassertf = LibShared.softassertf  or  function(ok, messageFormat, ...)
 	if ok then  return ok,nil  end  ;  local message = format(messageFormat, ...)  ;  _G.geterrorhandler()(message)  ;  return ok,message
 end
 
 -------------------------------------------------
---- LibCommon. asserttype(value, typename, [messagePrefix]):  Raises error (stops execution) if value's type is not the expected `typename`.
-LibCommon.asserttype = LibCommon.asserttype  or  function(value, typename, messagePrefix, calldepth)
+--- LibShared. asserttype(value, typename, [messagePrefix]):  Raises error (stops execution) if value's type is not the expected `typename`.
+LibShared.asserttype = LibShared.asserttype  or  function(value, typename, messagePrefix, calldepth)
 	if type(value)~=typename then  error( (messagePrefix or "")..typename.." expected, got "..type(value), (calldepth or 1)+1 )  end
 end
 
 -----------------------------
---- LibCommon. asserttypeOrNil(value, typename, [messagePrefix]):  Raises error (stops execution) if value's type is not the expected `typename` and value is not nil.
-LibCommon.asserttypeOrNil = LibCommon.asserttypeOrNil  or  function(value, typename, messagePrefix, calldepth)
+--- LibShared. asserttypeOrNil(value, typename, [messagePrefix]):  Raises error (stops execution) if value's type is not the expected `typename` and value is not nil.
+LibShared.asserttypeOrNil = LibShared.asserttypeOrNil  or  function(value, typename, messagePrefix, calldepth)
 	if nil~=value and type(value)~=typename then  error( (messagePrefix or "")..typename.." expected, got "..type(value), (calldepth or 1)+1 )  end
 end
 
 -- Type-check shorthands.  @return value  if its type is as expected,  false otherwise.
-LibCommon.isstring  = LibCommon.isstring  or function(value)  return  type(value)=='string'   and value  end
-LibCommon.istable   = LibCommon.istable   or function(value)  return  type(value)=='table'    and value  end
+LibShared.isstring  = LibShared.isstring  or function(value)  return  type(value)=='string'   and value  end
+LibShared.istable   = LibShared.istable   or function(value)  return  type(value)=='table'    and value  end
 
---- LibCommon.istype3(value, t1, t2, t3):  Test if value is one of 3 types.
-LibCommon.istype3 = LibCommon.istype3 or  function(value, t1, t2, t3)
+--- LibShared.istype3(value, t1, t2, t3):  Test if value is one of 3 types.
+LibShared.istype3 = LibShared.istype3 or  function(value, t1, t2, t3)
 	local t=type(value)  ;  if t==t1 or t==t2 or t==t3 then return value end  ;  return nil
 end
 
-local softassert,softassertf,asserttype,isstring,istable,istype3 = LibCommon.softassert,LibCommon.softassertf,LibCommon.asserttype,LibCommon.isstring,LibCommon.istable,LibCommon.istype3
+local softassert,softassertf,asserttype,isstring,istable,istype3 = LibShared.softassert,LibShared.softassertf,LibShared.asserttype,LibShared.isstring,LibShared.istable,LibShared.istype3
 
 -------------------------------------------------
---- LibCommon. AutoTablesMeta:  metatable that auto-creates empty inner tables when first referenced.
--- LibCommon.AutoTablesMeta = LibCommon.AutoTablesMeta or { __index = function(self, key)  if key ~= nil then  local v={} ; self[key]=v ; return v  end  end }
+--- LibShared. AutoTablesMeta:  metatable that auto-creates empty inner tables when first referenced.
+-- LibShared.AutoTablesMeta = LibShared.AutoTablesMeta or { __index = function(self, key)  if key ~= nil then  local v={} ; self[key]=v ; return v  end  end }
 
 -------------------------------------------------
---- LibCommon. initmetatable(obj):  Make sure obj has a metatable and return it.
-LibCommon.initmetatable = LibCommon.initmetatable or function(obj, default)
+--- LibShared. initmetatable(obj):  Make sure obj has a metatable and return it.
+LibShared.initmetatable = LibShared.initmetatable or function(obj, default)
 	local meta = getmetatable(obj)
 	if meta == nil then
 		meta = default or {}
@@ -173,20 +173,20 @@ end
 
 
 -----------------------------
-LibCommon.nonext = LibCommon.nonext  or  function(t,i)  return nil,nil  end
-local nonext = LibCommon.nonext
+LibShared.nonext = LibShared.nonext  or  function(t,i)  return nil,nil  end
+local nonext = LibShared.nonext
 -----------------------------
---- LibCommon. pairsOrNil(t):   Iterate `t` if it's a table, like pairs(t), skip otherwise. Won't raise halting error.
+--- LibShared. pairsOrNil(t):   Iterate `t` if it's a table, like pairs(t), skip otherwise. Won't raise halting error.
 -- Report (not raise) error if `t` is unexpected type (true/number/string/function/thread). Continue execution.
 --
-LibCommon.pairsOrNil = LibCommon.pairsOrNil  or  function(t)
+LibShared.pairsOrNil = LibShared.pairsOrNil  or  function(t)
   if type(t)=='table' then  return next ,t,nil
   elseif t then _G.geterrorhandler()("pairsOrNil(t) expected table or nil, got "..type(t))
 	end
   return nonext,t,nil
 end
 
-local pairsOrNil = LibCommon.pairsOrNil
+local pairsOrNil = LibShared.pairsOrNil
 
 
 
@@ -194,8 +194,8 @@ local pairsOrNil = LibCommon.pairsOrNil
 -------------------------------------------------
 -- Simple deep copy for copying profiles.
 --
-local DeepCopy, DeepCopyRevision = LibCommon.DeepCopy, 1
-if LibCommon.Revisions.DeepCopy < DeepCopyRevision then
+local DeepCopy, DeepCopyRevision = LibShared.DeepCopy, 1
+if LibShared.Revisions.DeepCopy < DeepCopyRevision then
 
 	function DeepCopy(dest, src)
 		if type(src)~='table' then  return src  end
@@ -210,7 +210,7 @@ if LibCommon.Revisions.DeepCopy < DeepCopyRevision then
 		end
 		return dest
 	end
-	LibCommon.Upgrade.DeepCopy[DeepCopyRevision] = DeepCopy
+	LibShared.Upgrade.DeepCopy[DeepCopyRevision] = DeepCopy
 
 end
 
@@ -352,7 +352,7 @@ end
 -- Experiment:  inherit default values from defaults with metatable inheritence.  
 local asteriskMeta = {
 	copyDefault = function(meta, dbTable, field, newvalue)
-		local defValue = meta.asterisk end
+		local defValue = meta.asterisk
 		if defValue == nil then  defValue = meta.asterisk2 end
 		if type(defValue)=='table' then
 			newvalue = AceDB.ApplyDefaults(newvalue, defValue)
@@ -509,7 +509,7 @@ local function copyDefaults2(dest, src)
 		meta = AceDB.applyMetatable(dest, src)
 		meta.copyDefault = nil
 		meta.__newindex = nil
-		meta.__index = srcHasContent and src or nil  end
+		meta.__index = srcHasContent and src or nil
 		-- Without asterisk field it's possible to efficiently inherit values
 		-- from the table in the defaults tree (one lookup: metatable->defaults).
 		-- This saves memory proportional to the number of entities in the addon.
@@ -534,7 +534,7 @@ function AceDB.applyMetatable(dest, defaults, metaPrototype)
 	elseif not istable(meta) then
 		error("AceDB.ApplyDefaults():  table in SavedVariable has incompatible protected metatable, that cannot be overridden.", 2)
 	elseif not meta.AceDBmetatable then
-		meta = LibCommon.merge({}, meta)    -- Copy oldmeta.
+		meta = LibShared.merge({}, meta)    -- Copy oldmeta.
 		meta.AceDBmetatable = 'uniqueForDBTable'
 		local replaced = replacemetatable(dest, meta)
 		assert(replaced, "AceDB.ApplyDefaults():  table in SavedVariable has incompatible protected metatable, that cannot be overridden.")
@@ -547,7 +547,7 @@ function AceDB.applyMetatable(dest, defaults, metaPrototype)
 	-- Save the inherited defaults table.
 	meta.defaults = defaults
 	-- Set __index.
-	LibCommon.merge(meta, metaPrototype)
+	LibShared.merge(meta, metaPrototype)
 
 	return meta
 end
@@ -1181,7 +1181,7 @@ end
 -- You can optionally supply a table to re-use for this purpose.
 -- @param list A table to store the profile names in (optional)
 function DBObjectMixin:GetProfiles(list)
-	assert(not list or type(list)=='table'), "Usage: AceDBObject:GetProfiles(list): 'list' - table or nil expected.", 2)
+	assert(not list or type(list)=='table', "Usage: AceDBObject:GetProfiles(list): 'list' - table or nil expected.", 2)
 	-- Clear the container table
 	list =  list and wipe(list)  or  {}
 
@@ -1464,7 +1464,7 @@ end
 -- @return the namespace object if found
 function DBObjectMixin:GetNamespace(name, silent)
 	asserttype(name, 'string', "Usage: AceDBObject:GetNamespace(name): 'name' - string expected.", 2)
-	assert(silent or (self.children and self.children[name], "Usage: AceDBObject:GetNamespace(name): 'name' - namespace does not exist.", 2)
+	assert(silent or (self.children and self.children[name]), "Usage: AceDBObject:GetNamespace(name): 'name' - namespace does not exist.", 2)
 	if not self.children then self.children = {} end
 	return self.children[name]
 end

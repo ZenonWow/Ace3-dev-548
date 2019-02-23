@@ -4,10 +4,10 @@ if not LibStub:NewLibrary(LIB_NAME, LIB_REVISION) then  return  end
 local LibDataBroker = LibStub("LibDataBroker-1.1")
 
 
-local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
-LibCommon.istable   = LibCommon.istable   or function(value)  return  type(value)=='table'    and value  end
---- LibCommon. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
-LibCommon.softassert = LibCommon.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+local LibShared = _G.LibShared or {}  ;  _G.LibShared = LibShared
+LibShared.istable   = LibShared.istable   or function(value)  return  type(value)=='table'    and value  end
+--- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
+LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
 
 
 -----------------------------------------------------
@@ -23,11 +23,11 @@ function LibDataBroker:RemoveDataObject(dataobj)
 	elseif dataobj then  name =  self.namestorage[dataobj]  or  dataobj.name
 	end
 	if not dataobj then
-		LibCommon.softassert(false, "Warn: LibDataBroker:RemoveDataObject(dataobj):  '"..tostring(dataobj).."' is not a registered dataobject.")
+		LibShared.softassert(false, "Warn: LibDataBroker:RemoveDataObject(dataobj):  '"..tostring(dataobj).."' is not a registered dataobject.")
 		return false
 	end
 
-	local istable = LibCommon.istable
+	local istable = LibShared.istable
 	local meta = getmetatable(dataobj)
 	if not istable(meta) then  meta = nil  end
 

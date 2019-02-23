@@ -25,28 +25,28 @@ local format = string.format
 --- Shared functions. ---
 -------------------------
 
--- Export to LibCommon:  softassert,softassertf,assertf,asserttype,initmetatable
-local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
+-- Export to LibShared:  softassert,softassertf,assertf,asserttype,initmetatable
+local LibShared = _G.LibShared or {}  ;  _G.LibShared = LibShared
 
---- LibCommon. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
-LibCommon.softassert = LibCommon.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+--- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
+LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
 
---- LibCommon. softassertf( condition, messageFormat, formatParameter...):  Report error, then continue execution, _unlike_ assert(). Formatted error message.
-LibCommon.softassertf = LibCommon.softassertf  or  function(ok, messageFormat, ...)
+--- LibShared. softassertf( condition, messageFormat, formatParameter...):  Report error, then continue execution, _unlike_ assert(). Formatted error message.
+LibShared.softassertf = LibShared.softassertf  or  function(ok, messageFormat, ...)
 	if ok then  return ok,nil  end  ;  local message = format(messageFormat, ...)  ;  _G.geterrorhandler()(message)  ;  return ok,message
 end
 
---- LibCommon. asserttype(value, typename, [messagePrefix]):  Raises error (stops execution) if value's type is not the expected `typename`.
-LibCommon.asserttype = LibCommon.asserttype  or  function(value, typename, messagePrefix)
+--- LibShared. asserttype(value, typename, [messagePrefix]):  Raises error (stops execution) if value's type is not the expected `typename`.
+LibShared.asserttype = LibShared.asserttype  or  function(value, typename, messagePrefix)
 	if type(value)~=typename then  error( (messagePrefix or "")..typename.." expected, got "..type(value) )  end
 end
 
---- LibCommon. assertf(condition, messageFormat, formatParameter...):  Raises error (stops execution) if condition fails. Formatted error message.
-LibCommon.assertf = LibCommon.assertf  or  function(ok, messageFormat, ...)  if not ok then  error( format(messageFormat, ...) )  end  end
+--- LibShared. assertf(condition, messageFormat, formatParameter...):  Raises error (stops execution) if condition fails. Formatted error message.
+LibShared.assertf = LibShared.assertf  or  function(ok, messageFormat, ...)  if not ok then  error( format(messageFormat, ...) )  end  end
 
 -------------------------------------------------
---- LibCommon. initmetatable(obj):  Make sure obj has a metatable and return it.
-LibCommon.initmetatable = LibCommon.initmetatable or function(obj, default)
+--- LibShared. initmetatable(obj):  Make sure obj has a metatable and return it.
+LibShared.initmetatable = LibShared.initmetatable or function(obj, default)
 	local meta = getmetatable(obj)
 	if meta == nil then
 		meta = default or {}
@@ -57,7 +57,7 @@ LibCommon.initmetatable = LibCommon.initmetatable or function(obj, default)
 	return meta, obj
 end
 
-local softassert,softassertf,asserttype,assertf,initmetatable = LibCommon.softassert,LibCommon.softassertf,LibCommon.asserttype,LibCommon.assertf,LibCommon.initmetatable
+local softassert,softassertf,asserttype,assertf,initmetatable = LibShared.softassert,LibShared.softassertf,LibShared.asserttype,LibShared.assertf,LibShared.initmetatable
 
 
 

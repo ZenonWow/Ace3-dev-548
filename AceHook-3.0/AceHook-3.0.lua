@@ -17,11 +17,11 @@ local AceHook, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not AceHook then return end -- No upgrade needed
 
 
-local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
+local LibShared = _G.LibShared or {}  ;  _G.LibShared = LibShared
 
 -- AutoTablesMeta: metatable that automatically creates empty inner tables when keys are first referenced.
-LibCommon.AutoTablesMeta = LibCommon.AutoTablesMeta or { __index = function(self, key)  if key ~= nil then  local v={} ; self[key]=v ; return v  end  end }
-local AutoTablesMeta = LibCommon.AutoTablesMeta
+LibShared.AutoTablesMeta = LibShared.AutoTablesMeta or { __index = function(self, key)  if key ~= nil then  local v={} ; self[key]=v ; return v  end  end }
+local AutoTablesMeta = LibShared.AutoTablesMeta
 
 AceHook.registry = AceHook.registry or setmetatable({}, AutoTablesMeta)
 AceHook.handlers = AceHook.handlers or {}

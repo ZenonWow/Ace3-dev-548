@@ -153,7 +153,7 @@ function SpecsNRoles.UpdateSpec()
 		-- tokenKeys['specID'] = specID
 
 		-- dpsrole based on specID:
-		local indexOf = LibCommon.Require.indexOf
+		local indexOf = LibShared.Require.indexOf
 		if     indexOf(roleSpecs.Melee,  specID) then  dpsrole = 'Melee'
 		elseif indexOf(roleSpecs.Ranged, specID) then  dpsrole = 'Ranged'
 		elseif blizrole == 'DAMAGER' then

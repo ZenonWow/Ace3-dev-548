@@ -13,7 +13,7 @@ if not LibEnv then  return  end
 
 
 -- Import
-local _G, LibCommon = getfenv(1), LibCommon
+local _G, LibShared = getfenv(1), LibShared
 
 -- Upvalued Lua globals:
 local assert,setfenv,rawget = assert,setfenv,rawget

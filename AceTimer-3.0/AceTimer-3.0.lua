@@ -313,16 +313,16 @@ end
 -- Embed handling
 
 
-local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
---- LibCommon. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
-LibCommon.softassert = LibCommon.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+local LibShared = _G.LibShared or {}  ;  _G.LibShared = LibShared
+--- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
+LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
 
 
 -- Embeds AceTimer into the target object making the functions from the mixin table available on target:..
 -- @param target target object to embed AceTimer in
 function AceTimer:Embed(target)
 	-- TODO: Remove if no such anomaly found.
-	if self ~= AceTimer then  LibCommon.softassert(false, "AceTimer:Embed("..tostring(target).."): self= "..tostring(self).." ~= AceTimer" )  end
+	if self ~= AceTimer then  LibShared.softassert(false, "AceTimer:Embed("..tostring(target).."): self= "..tostring(self).." ~= AceTimer" )  end
 	self = AceTimer
 
 	self.embeds[target] = true

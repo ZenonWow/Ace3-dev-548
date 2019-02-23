@@ -49,10 +49,10 @@ lib.callbackRegistered = lib.callbackRegistered or nil
 lib.callbacks = lib.callbacks or LibStub("CallbackHandler-1.0"):New(lib)
 lib.notCreated = lib.notCreated or {}
 
-local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
---- LibCommon. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
-LibCommon.softassert = LibCommon.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
-local safecall = assert(LibCommon.safecall, "LibMinimapIcon(LibDBIcon) requires LibCommon.safecall")
+local LibShared = _G.LibShared or {}  ;  _G.LibShared = LibShared
+--- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
+LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+local safecall = assert(LibShared.safecall, "LibMinimapIcon(LibDBIcon) requires LibShared.safecall")
 
 
 function lib:IconCallback(event, name, key, value, dataobj)
@@ -263,7 +263,7 @@ local function createButton(name, dataobj, db)
 	end
 	lib.callbacks:Fire("LibDBIcon_IconCreated", button, name) -- Fire 'Icon Created' callback
 
-	local safecall = LibCommon.safecall or pcall
+	local safecall = LibShared.safecall or pcall
 	safecall(dataobj.AttachDisplay, dataobj, button)
 end
 
@@ -300,7 +300,7 @@ end
 function lib:Register(name, dataobj, db)
 	if not dataobj.icon then  error("LibMinimapIcon:  LibDBIcon:Register():  Can't register dataobject '"..name.."' without .icon set.")  end
 	if lib.objects[name] or lib.notCreated[name] then
-		LibCommon.softassert(false, "LibMinimapIcon:  LibDBIcon:Register():  dataobject '"..name.."' already registered.")
+		LibShared.softassert(false, "LibMinimapIcon:  LibDBIcon:Register():  dataobject '"..name.."' already registered.")
 		return false
 	end
 
@@ -314,7 +314,7 @@ end
 function lib:Unregister(name, dataobjIn)
 	local button = lib.objects[name]
 	local dataobj = button.dataObject
-	local safecall = LibCommon.safecall or pcall
+	local safecall = LibShared.safecall or pcall
 	safecall(dataobj.DetachDisplay, dataobj, button)
 
 	lib.notCreated[name] = nil
@@ -409,7 +409,7 @@ end
 function lib:EnableLibrary()
 	lib.disabled = nil
 	-- lib:RegisterCallbacks()
-	local safecall = LibCommon.safecall or pcall
+	local safecall = LibShared.safecall or pcall
 
 	for name, button in pairs(lib.objects) do
 		if not button.db or not button.db.hide then
@@ -430,7 +430,7 @@ end
 function lib:DisableLibrary()
 	lib.disabled = true
 	-- lib:UnregisterCallbacks()
-	local safecall = LibCommon.safecall or pcall
+	local safecall = LibShared.safecall or pcall
 
 	for name, button in pairs(lib.objects) do
 		button:Hide()

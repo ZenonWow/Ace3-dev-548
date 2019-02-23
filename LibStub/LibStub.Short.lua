@@ -8,7 +8,7 @@
 
 -- GLOBALS:
 -- Exported to _G:  LibStubs
--- Used from LibCommon:
+-- Used from LibShared:
 -- Used from _G:  pairs, next, getmetatable, setmetatable, geterrorhandler
 -- Upvalued Lua globals:  type,getmetatable,setmetatable,rawset
 
@@ -36,7 +36,7 @@ if Shorty then
 		name = name:gsub("[%-%.]", "")
 		local conflict = shortNames[short]
 		if conflict == lib then  return  end
-		if _G.DEVMODE then  _G.LibCommon.softassert(not conflict, 'Warn: LibStub.Short:  There should be no conflicting shortname, and there it is: "'..name..'" vs "'..tostring(conflict.name)..'"."')  end
+		if _G.DEVMODE then  _G.LibShared.softassert(not conflict, 'Warn: LibStub.Short:  There should be no conflicting shortname, and there it is: "'..name..'" vs "'..tostring(conflict.name)..'"."')  end
 		if  conflict  and  name <= (conflict.name or "")  then  return  end
 		shortNames[short] = lib
 	end

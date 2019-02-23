@@ -33,17 +33,17 @@ local PATH_SEP = '\031'  -- 31 - '▼'▼'▼'  -- US - Unit Separator  -- Can b
 local gui = LibStub("AceGUI-3.0", nil, MAJOR)
 local reg = LibStub("AceConfigRegistry-3.0", nil, MAJOR)
 
--- Export to LibCommon:  errorhandler, softassert, safecall/safecallDispatch
-local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
+-- Export to LibShared:  errorhandler, softassert, safecall/safecallDispatch
+local LibShared = _G.LibShared or {}  ;  _G.LibShared = LibShared
 
 -- Allow hooking _G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
 -- Avoiding tailcall: errorhandler() function would show up as "?" in stacktrace, making it harder to understand.
-LibCommon.errorhandler = LibCommon.errorhandler or  function(errorMessage)  return true and _G.geterrorhandler()(errorMessage)  end
-local errorhandler = LibCommon.errorhandler
+LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  return true and _G.geterrorhandler()(errorMessage)  end
+local errorhandler = LibShared.errorhandler
 
---- LibCommon. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
-LibCommon.softassert = LibCommon.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
-local softassert = LibCommon.softassert
+--- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
+LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+local softassert = LibShared.softassert
 
 
 if  select(4, GetBuildInfo()) >= 80000  then
@@ -53,11 +53,11 @@ if  select(4, GetBuildInfo()) >= 80000  then
 	-- https://us.battle.net/forums/en/wow/topic/20762318007
 	-- • xpcall now accepts arguments like pcall does
 	--
-	LibCommon.safecall = LibCommon.safecall or  function(unsafeFunc, ...)  return xpcall(unsafeFunc, errorhandler, ...)  end
+	LibShared.safecall = LibShared.safecall or  function(unsafeFunc, ...)  return xpcall(unsafeFunc, errorhandler, ...)  end
 
-elseif not LibCommon.safecallDispatch then
+elseif not LibShared.safecallDispatch then
 
-	-- Export  LibCommon.safecallDispatch
+	-- Export  LibShared.safecallDispatch
 	local SafecallDispatchers = {}
 	function SafecallDispatchers:CreateDispatcher(argCount)
 		local sourcecode = [===[
@@ -94,7 +94,7 @@ elseif not LibCommon.safecallDispatch then
 		--return xpcall(unsafeFunc, _G.geterrorhandler())
 	end
 
-	function LibCommon.safecallDispatch(unsafeFunc, ...)
+	function LibShared.safecallDispatch(unsafeFunc, ...)
 		-- we check to see if unsafeFunc is actually a function here and don't error when it isn't
 		-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
 		-- present execution should continue without hinderance
@@ -109,12 +109,12 @@ elseif not LibCommon.safecallDispatch then
 		return dispatcher(unsafeFunc, ...)
 	end
 
-end -- LibCommon.safecallDispatch
+end -- LibShared.safecallDispatch
 
 
 
 -- Choose the safecall implementation to use.
-local safecall = LibCommon.safecall or LibCommon.safecallDispatch
+local safecall = LibShared.safecall or LibShared.safecallDispatch
 
 -- Lua APIs
 local tconcat, tinsert, tsort, tremove, tsort = table.concat, table.insert, table.sort, table.remove, table.sort
