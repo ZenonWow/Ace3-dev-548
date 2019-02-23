@@ -50,7 +50,8 @@ lib.callbacks = lib.callbacks or LibStub("CallbackHandler-1.0"):New(lib)
 lib.notCreated = lib.notCreated or {}
 
 local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
-LibCommon.softassert = LibCommon.softassert or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+--- LibCommon. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
+LibCommon.softassert = LibCommon.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
 local safecall = assert(LibCommon.safecall, "LibMinimapIcon(LibDBIcon) requires LibCommon.safecall")
 
 

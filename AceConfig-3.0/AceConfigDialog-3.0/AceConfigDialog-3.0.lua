@@ -18,9 +18,20 @@ AceConfigDialog.frame.apps = AceConfigDialog.frame.apps or {}
 AceConfigDialog.frame.closing = AceConfigDialog.frame.closing or {}
 AceConfigDialog.frame.closeAllOverride = AceConfigDialog.frame.closeAllOverride or {}
 
+-- https://en.wikipedia.org/wiki/C0_and_C1_control_codes#Field_separators
+-- Format:  -- <decimal code>='<ALT-num>'<copy from Lua>'<ALT-0num>' -- <mnemonic> - <name>
+-- local PATH_SEP = '\001'  -- 01='☺''☺'  -- SOH - Start of Heading
+-- local PATH_SEP = '\009'  -- 09='○'	'	'  -- HL/TAB - Horizontal Tabulation
+-- local PATH_SEP = '\016'  -- 16='►'►''  -- DLE - Data Link Escape
+-- local PATH_SEP = '\020'  -- 20='¶'¶''  -- DC4 - Device Control 4
+-- local PATH_SEP = '\021'  -- 21='§'§''  -- NAK - Negative Acknowledge
+-- local PATH_SEP = '\026'  -- 26='→'→''  -- SUB - Substitute
+-- local PATH_SEP = '\029'  -- 29='↔'↔''  -- GS - Group Separator
+local PATH_SEP = '\031'  -- 31 - '▼'▼'▼'  -- US - Unit Separator  -- Can be used as delimiters to mark fields of data structures. If used for hierarchical levels, US is the lowest level (dividing plain-text data items), while RS, GS, and FS are of increasing level to divide groups made up of items of the level beneath it.
+
+
 local gui = LibStub("AceGUI-3.0", nil, MAJOR)
 local reg = LibStub("AceConfigRegistry-3.0", nil, MAJOR)
-
 
 -- Export to LibCommon:  errorhandler, softassert, safecall/safecallDispatch
 local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
@@ -30,8 +41,8 @@ local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
 LibCommon.errorhandler = LibCommon.errorhandler or  function(errorMessage)  return true and _G.geterrorhandler()(errorMessage)  end
 local errorhandler = LibCommon.errorhandler
 
--- softassert(condition, message):  Report error without halting.
-LibCommon.softassert = LibCommon.softassert or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+--- LibCommon. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
+LibCommon.softassert = LibCommon.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
 local softassert = LibCommon.softassert
 
 
@@ -89,7 +100,7 @@ elseif not LibCommon.safecallDispatch then
 		-- present execution should continue without hinderance
 		if  not unsafeFunc  then  return  end
 		if  type(unsafeFunc)~='function'  then
-			LibCommon.softassert(false, "Usage: safecall(unsafeFunc):  function expected, got "..type(unsafeFunc))
+			softassert(false, "Usage: safecall(unsafeFunc):  function expected, got "..type(unsafeFunc))
 			return
 		end
 
@@ -532,7 +543,7 @@ function AceConfigDialog:SelectGroup(appName, ...)
 			--tree group by default
 			if treevalue then
 				--this is an extra level of a tree group, build a uniquevalue for it
-				treevalue = treevalue.."\001"..key
+				treevalue = treevalue..PATH_SEP..key
 			else
 				--this is the top level of a tree group, the uniquevalue is the same as the key
 				treevalue = key
@@ -1479,7 +1490,7 @@ local function TreeOnButtonEnter(widget, event, uniquevalue, button)
 		feedpath[i] = path[i]
 	end
 
-	BuildPath(feedpath, ("\001"):split(uniquevalue))
+	BuildPath(feedpath, (PATH_SEP):split(uniquevalue))
 	local group = options
 	for i = 1, #feedpath do
 		if not group then return end
@@ -1519,7 +1530,7 @@ local function GroupExists(appName, options, path, uniquevalue)
 		feedpath[i] = path[i]
 	end
 	
-	BuildPath(feedpath, ("\001"):split(uniquevalue))
+	BuildPath(feedpath, (PATH_SEP):split(uniquevalue))
 	
 	local group = options
 	for i = 1, #feedpath do
@@ -1552,7 +1563,7 @@ local function GroupSelected(widget, event, uniquevalue)
 		feedpath[i] = path[i]
 	end
 
-	BuildPath(feedpath, ("\001"):split(uniquevalue))
+	BuildPath(feedpath, (PATH_SEP):split(uniquevalue))
 	local group = options
 	for i = 1, #feedpath do
 		group = GetSubOption(group, feedpath[i])
@@ -1972,7 +1983,7 @@ function AceConfigDialog:AddToBlizOptions(appName, name, parent, ...)
 	
 	local key = appName
 	for n = 1, select("#", ...) do
-		key = key.."\001"..select(n, ...)
+		key = key..PATH_SEP..select(n, ...)
 	end
 	
 	if not BlizOptions[appName] then

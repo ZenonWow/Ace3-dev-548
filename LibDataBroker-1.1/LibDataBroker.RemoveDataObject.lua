@@ -6,7 +6,8 @@ local LibDataBroker = LibStub("LibDataBroker-1.1")
 
 local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
 LibCommon.istable   = LibCommon.istable   or function(value)  return  type(value)=='table'    and value  end
-LibCommon.softassert = LibCommon.softassert or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+--- LibCommon. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
+LibCommon.softassert = LibCommon.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
 
 
 -----------------------------------------------------

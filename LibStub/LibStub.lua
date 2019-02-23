@@ -92,11 +92,19 @@ if  (LibStub.minor or 0) < LIBSTUB_REVISION  then
 	end
 
 	--- LibStub(name, [optional/client])
+	setmetatable(LibStub, LibStub)    -- is its own metatable.
+	LibStub.__call = LibStub.GetLibrary
+	-- Protect from setmetatable(), while getmetatable() works as usual.
+	LibStub.__metatable = LibStub
+
+	--[[
+	--- LibStub(name, [optional/client])
 	local metatable = _G.getmetatable(LibStub)
 	if not metatable then  metatable = {}  ;  setmetatable(LibStub, metatable)  end
 	metatable.__call = LibStub.GetLibrary
 	-- Protect from setmetatable(), while getmetatable() works as usual.
 	metatable.__metatable = metatable
+	--]]
 
 
 	-----------------------------------------------------------------------------

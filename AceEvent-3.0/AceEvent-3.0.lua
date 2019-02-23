@@ -25,9 +25,9 @@ local CallbackHandler = LibStub("CallbackHandler-1.0", nil, MAJOR)
 -- local CallbackHandler = LibStub:Depend(AceEvent, "CallbackHandler-1.0")
 -- local CallbackHandler = AceEvent:Depend("CallbackHandler-1.0")
 
-AceEvent.frame  = AceEvent.frame or CreateFrame("Frame", "AceEvent30Frame") -- our event frame
-AceEvent.embeds = AceEvent.embeds or {}  -- Clients embedding these mixins.
-AceEvent.mixins = AceEvent.mixins or {}  -- Methods embedded in clients.
+AceEvent.frame  = AceEvent.frame  or CreateFrame("Frame", "AceEvent30Frame") -- our event frame
+AceEvent.embeds = AceEvent.embeds or {}  -- Clients of AceEvent embedding the mixin methods.
+AceEvent.mixin  = AceEvent.mixin  or {}  -- Methods embedded in clients.
 
 
 
@@ -80,7 +80,7 @@ if not AceEvent.events then
 	AceEvent.events = CallbackHandler:New(AceEvent, "RegisterEvent", "UnregisterEvent", "UnregisterAllEvents")
 end
 
-function AceEvent.mixins:IsEventRegistered(eventname)
+function AceEvent.mixin:IsEventRegistered(eventname)
 	assert(self ~= AceEvent, "Usage: receiver:IsEventRegistered(`eventname`): do not use AceEvent:IsEventRegistered(), use your own object as self/`receiver`", 2)
 	local callbacks = rawget(AceEvent.events.events, eventname)
 	return  callbacks  and  callbacks[self] ~= nil
@@ -103,23 +103,26 @@ end
 
 if not AceEvent.messages then
 	AceEvent.messages = CallbackHandler:New(AceEvent, "RegisterMessage", "UnregisterMessage", "UnregisterAllMessages")
-	AceEvent.mixins.SendMessage = AceEvent.messages.Fire
+	AceEvent.mixin.SendMessage = AceEvent.messages.Fire
 end
 
---[[ embedding and embed handling
+
+
+
+-- embedding and embed handling
 local mixins = {
 	"RegisterEvent",   "UnregisterEvent",   "UnregisterAllEvents",   "IsEventRegistered",
 	"RegisterMessage", "UnregisterMessage", "UnregisterAllMessages", "SendMessage",
-}--]]
+}
+-- CallbackHandler:New mixes methods of 
+for i,name in ipairs(mixins) do  AceEvent.mixin[name] = AceEvent[name]  end
 
 
-
-
--- Embeds AceEvent into the target object making the functions from the mixins list available on target:..
+-- Embeds AceEvent into the target object making the functions from the mixin object available on target:..
 -- @param target target object to embed AceEvent in
 function AceEvent:Embed(target)
 	self.embeds[target] = true
-	for name,method in pairs(self.mixins) do
+	for name,method in pairs(self.mixin) do
 		target[name] = method
 	end
 	return target
@@ -145,3 +148,5 @@ end)
 for target, v in pairs(AceEvent.embeds) do
 	AceEvent:Embed(target)
 end
+
+

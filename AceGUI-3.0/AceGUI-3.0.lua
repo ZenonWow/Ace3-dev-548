@@ -103,8 +103,8 @@ elseif not LibCommon.safecallDispatch then
 		--return xpcall(unsafeFunc, _G.geterrorhandler())
 	end
 
-	-- softassert(condition, message):  Report error without halting.
-	LibCommon.softassert = LibCommon.softassert or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+	--- LibCommon. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
+	LibCommon.softassert = LibCommon.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
 
 	function LibCommon.safecallDispatch(unsafeFunc, ...)
 		-- we check to see if unsafeFunc is actually a function here and don't error when it isn't

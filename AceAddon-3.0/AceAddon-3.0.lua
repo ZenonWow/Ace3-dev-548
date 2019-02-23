@@ -119,8 +119,8 @@ elseif not LibCommon.safecallDispatch then
 		--return xpcall(unsafeFunc, _G.geterrorhandler())
 	end
 
-	-- softassert(condition, message):  Report error without halting.
-	LibCommon.softassert = LibCommon.softassert or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+	--- LibCommon. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
+	LibCommon.softassert = LibCommon.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
 
 	function LibCommon.safecallDispatch(unsafeFunc, ...)
 		-- we check to see if unsafeFunc is actually a function here and don't error when it isn't
@@ -147,14 +147,14 @@ local safecall = LibCommon.safecall or LibCommon.safecallDispatch
 local errorOffset = 1
 -- Forward declaration
 local Embed
--- Client mixins refactored to AceAddon.mixins
+-- Client mixin methods refactored to AceAddon.mixin
 -- local Enable, Disable, EnableModule, DisableModule, NewModule, GetModule, GetName, SetDefaultModuleState, SetDefaultModuleLibraries, SetEnabledState, SetDefaultModulePrototype
 
 
 
 AceAddon.addons = AceAddon.addons or {}                                -- Registered addon objects:  name -> addon  map.
-AceAddon.mixins = AceAddon.mixins or {}                                -- Methods embedded in clients (registered addons).
-local mixins    = AceAddon.mixins
+AceAddon.mixin  = AceAddon.mixin or {}                                -- Methods embedded in clients (registered addons).
+local mixin     = AceAddon.mixin
 AceAddon.embeds = setmetatable(AceAddon.embeds or {}, AutoTablesMeta)  -- contains a list of libraries embedded in an addon
 AceAddon.statuses = AceAddon.statuses or {} -- statuses of addon.
 AceAddon.initializequeue = AceAddon.initializequeue or {} -- addons that are new and not initialized
@@ -311,7 +311,7 @@ end
 -- MyAddon = LibStub("AceAddon-3.0"):GetAddon("MyAddon")
 -- -- Get the Module
 -- MyModule = MyAddon:GetModule("MyModule")
-function mixins.GetModule(addon, name, silent)
+function mixin.GetModule(addon, name, silent)
 	if not addon.modules[name] and not silent then
 		error( format("Usage: MyAddon:GetModule(name, silent): `name` - Cannot find module '%s'.", tostring(name)), 2 )
 	end
@@ -338,7 +338,7 @@ local function ReturnTrue() return true end
 -- -- Create a module with a prototype
 -- local prototype = { OnEnable = function(module) print("OnEnable called!") end }
 -- MyModule = MyAddon:NewModule("MyModule", prototype, "AceEvent-3.0", "AceHook-3.0")
-function mixins.NewModule(addon, moduleName, ...)
+function mixin.NewModule(addon, moduleName, ...)
 	local prototype = ...
 	local prototypeSet =  1 <= select('#',...)  and  type(prototype) ~= 'string'
 	if type(moduleName)~='string' then
@@ -390,7 +390,7 @@ end
 -- @usage 
 -- print(MyAddon:GetName())
 -- -- prints "MyAddon"
-function mixins.GetName(addonOrModule)
+function mixin.GetName(addonOrModule)
 	return addonOrModule.moduleName or addonOrModule.name
 end
 
@@ -416,7 +416,7 @@ end
 -- MyAddon = LibStub("AceAddon-3.0"):GetAddon("MyAddon")
 -- MyModule = MyAddon:GetModule("MyModule")
 -- MyModule:Enable()
-function mixins.Enable(addonOrModule)
+function mixin.Enable(addonOrModule)
 	addonOrModule:SetEnabledState(true)
 
 	-- nevcairiel 2013-04-27: don't enable an addon/module if its queued for init still
@@ -436,7 +436,7 @@ end
 -- -- Disable MyAddon
 -- MyAddon = LibStub("AceAddon-3.0"):GetAddon("MyAddon")
 -- MyAddon:Disable()
-function mixins.Disable(addonOrModule)
+function mixin.Disable(addonOrModule)
 	addonOrModule:SetEnabledState(false)
 	return AceAddon:DisableAddon(addonOrModule)
 end
@@ -454,7 +454,7 @@ end
 -- -- Enable MyModule using the short-hand
 -- MyAddon = LibStub("AceAddon-3.0"):GetAddon("MyAddon")
 -- MyAddon:EnableModule("MyModule")
-function mixins.EnableModule(addon, name)
+function mixin.EnableModule(addon, name)
 	local module = addon:GetModule( name )
 	return module:Enable()
 end
@@ -472,7 +472,7 @@ end
 -- -- Disable MyModule using the short-hand
 -- MyAddon = LibStub("AceAddon-3.0"):GetAddon("MyAddon")
 -- MyAddon:DisableModule("MyModule")
-function mixins.DisableModule(addon, name)
+function mixin.DisableModule(addon, name)
 	local module = addon:GetModule( name )
 	return module:Disable()
 end
@@ -489,7 +489,7 @@ end
 -- MyAddon:SetDefaultModuleLibraries("AceEvent-3.0")
 -- -- Create a module
 -- MyModule = MyAddon:NewModule("MyModule")
-function mixins.SetDefaultModuleLibraries(addon, ...)
+function mixin.SetDefaultModuleLibraries(addon, ...)
 	if next(addon.modules) then
 		error("Usage: SetDefaultModuleLibraries(...): cannot change the module defaults after a module has been registered.", 2)
 	end
@@ -509,7 +509,7 @@ end
 -- -- Create a module and explicilty enable it
 -- MyModule = MyAddon:NewModule("MyModule")
 -- MyModule:Enable()
-function mixins.SetDefaultModuleState(addon, state)
+function mixin.SetDefaultModuleState(addon, state)
 	if next(addon.modules) then
 		error("Usage: SetDefaultModuleState(state): cannot change the module defaults after a module has been registered.", 2)
 	end
@@ -531,7 +531,7 @@ end
 -- MyModule:Enable()
 -- -- should print "OnEnable called!" now
 -- @see NewModule
-function mixins.SetDefaultModulePrototype(addon, prototype)
+function mixin.SetDefaultModulePrototype(addon, prototype)
 	if next(addon.modules) then
 		error("Usage: SetDefaultModulePrototype(prototype): cannot change the module defaults after a module has been registered.", 2)
 	end
@@ -546,7 +546,7 @@ end
 -- @name //addon//:SetEnabledState
 -- @paramsig state
 -- @param state the state of an addon or module  (enabled=true, disabled=false)
-function mixins.SetEnabledState(addonOrModule, state)
+function mixin.SetEnabledState(addonOrModule, state)
 	addonOrModule.enabledState = state
 end
 
@@ -559,12 +559,12 @@ end
 -- for name, module in MyAddon:IterateModules() do
 --    module:Enable()
 -- end
-function mixins.IterateModules(addon) return pairs(addon.modules) end
+function mixin.IterateModules(addon) return pairs(addon.modules) end
 
 -- Returns an iterator of all embeds in the addon
 -- @name //addon//:IterateEmbeds
 -- @paramsig 
-function mixins.IterateEmbeds(addonOrModule) return pairs(AceAddon.embeds[addonOrModule]) end
+function mixin.IterateEmbeds(addonOrModule) return pairs(AceAddon.embeds[addonOrModule]) end
 
 --- Query the enabledState of an addon.
 -- @name //addon//:IsEnabled
@@ -573,9 +573,9 @@ function mixins.IterateEmbeds(addonOrModule) return pairs(AceAddon.embeds[addonO
 -- if MyAddon:IsEnabled() then
 --     MyAddon:Disable()
 -- end
-function mixins.IsEnabled(addonOrModule) return addonOrModule.enabledState end
+function mixin.IsEnabled(addonOrModule) return addonOrModule.enabledState end
 
-function mixins.SetAddonEnv(addonOrModule, addonName, env)
+function mixin.SetAddonEnv(addonOrModule, addonName, env)
 	addonOrModule.folderName = addonName
 	addonOrModule._ENV = env
 	return addonOrModule    -- for method chaining
@@ -593,7 +593,7 @@ local pmixins = {
 --
 -- this is a local function specifically since it's meant to be only called internally
 function Embed(target, skipPMixins)
-	for k, v in pairs(mixins) do
+	for k, v in pairs(mixin) do
 		target[k] = v
 	end
 	if not skipPMixins then

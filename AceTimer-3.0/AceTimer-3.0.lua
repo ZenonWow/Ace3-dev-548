@@ -40,9 +40,9 @@ AceTimer.frame = AceTimer.frame or CreateFrame("Frame", "AceTimer30Frame") -- An
 -- AceTimer.inactiveTimers = AceTimer.inactiveTimers or {}                 -- Timer recycling storage until MINOR = 16
 AceTimer.inactiveTimerList = AceTimer.inactiveTimerList or {}              -- Timer recycling list MINOR > 16
 AceTimer.activeTimers      = AceTimer.activeTimers or {}                   -- Active id->timer map
-AceTimer.embeds            = AceTimer.embeds or {}                         -- Clients embedding these mixins.
-AceTimer.mixins            = AceTimer.mixins or {}                         -- Methods embedded in clients.
-local mixins = AceTimer.mixins
+AceTimer.embeds            = AceTimer.embeds or {}                         -- Clients embedding the mixin methods.
+AceTimer.mixin             = AceTimer.mixin or {}                          -- Methods embedded in clients.
+local mixin = AceTimer.mixin
 
 
 -- Lua APIs
@@ -58,17 +58,19 @@ local function OnFinished(timer)
 		activeTimers[id] = nil
 		inactiveTimerList[#inactiveTimerList+1] = timer
 		timer.args = nil
+		timer.argsCount = nil
 	end
 
 	local callback =  timer.methodName and timer.object[timer.methodName]  or  timer.func
 	-- We manually set the unpack count to prevent issues with an arg set that contains nil and ends with nil
 	-- e.g. local t = {1, 2, nil, 3, nil} print(#t) will result in 2, instead of 5. This fixes said issue.
-	callback(unpack(args, 1, args.n))
+	callback(unpack(args, 1, timer.argsCount))
 
 	-- If the id is different it means that the timer was reused to create a new timer during the OnFinished callback.
 	-- AceBucket does that.
 	if  not timer.looping  and  id == timer.id  then
 		-- timer.args = nil
+		-- timer.argsCount = nil
 		-- .func and .object are static, not candidates for garbage collection in most if not all use-cases.
 		-- timer.func = nil
 		-- timer.object = nil
@@ -96,12 +98,12 @@ local function new(client, looping, callback, delay, ...)
 		timer.methodName = callback
 		timer.func = client[callback]
 		timer.args = { client, ... }
-		timer.args.n = 1 + select("#",...)
+		timer.argsCount = 1 + select("#",...)
 	else
 		timer.methodName = nil -- Reset if timer is reused.
 		timer.func = callback
 		timer.args = {...}
-		timer.args.n = select("#",...)
+		timer.argsCount = select("#",...)
 	end
 
 	timer.object = client
@@ -135,7 +137,7 @@ end
 --   print("5 seconds passed")
 -- end
 --
-function mixins:ScheduleTimer(callback, delay, ...)
+function mixin:ScheduleTimer(callback, delay, ...)
 	if not callback or not delay then
 		error(MAJOR..": ScheduleTimer(callback, delay, args...): 'callback' and 'delay' must have set values.", 2)
 	end
@@ -172,7 +174,7 @@ end
 --   end
 -- end
 --
-function mixins:ScheduleRepeatingTimer(callback, delay, ...)
+function mixin:ScheduleRepeatingTimer(callback, delay, ...)
 	if not callback or not delay then
 		error(MAJOR..": ScheduleRepeatingTimer(callback, delay, args...): 'callback' and 'delay' must have set values.", 2)
 	end
@@ -191,7 +193,7 @@ end
 -- Both one-shot and repeating timers can be canceled with this function, as long as the `id` is valid
 -- and the timer has not fired yet or was canceled before.
 -- @param id The id of the timer, as returned by `:ScheduleTimer` or `:ScheduleRepeatingTimer`
-function mixins:CancelTimer(id)
+function mixin:CancelTimer(id)
 	local timer = activeTimers[id]
 	if not timer then return false end
 
@@ -200,12 +202,13 @@ function mixins:CancelTimer(id)
 
 	activeTimers[id] = nil
 	timer.args = nil
+	timer.argsCount = nil
 	inactiveTimerList[#inactiveTimerList+1] = timer
 	return true
 end
 
 --- Cancels all timers registered to the current addon object ('self')
-function mixins:CancelAllTimers()
+function mixin:CancelAllTimers()
 	for k,v in pairs(activeTimers) do
 		if v.object == self then
 			AceTimer.CancelTimer(self, k)
@@ -217,7 +220,7 @@ end
 -- This function will return nil when the id is invalid.
 -- @param id The id of the timer, as returned by `:ScheduleTimer` or `:ScheduleRepeatingTimer`
 -- @return true if it's still ticking, otherwise nil.
-function mixins:IsActive(id)
+function mixin:IsActive(id)
 	return activeTimers[id] and true
 end
 
@@ -225,7 +228,7 @@ end
 -- This function will return 0 when the id is invalid.
 -- @param id The id of the timer, as returned by `:ScheduleTimer` or `:ScheduleRepeatingTimer`
 -- @return The time left on the timer.
-function mixins:TimeLeft(id)
+function mixin:TimeLeft(id)
 	local timer = activeTimers[id]
 	if not timer then return 0 end
 	return timer:GetDuration() - timer:GetElapsed()
@@ -292,10 +295,6 @@ end
 for _,timer in pairs(activeTimers) do
 	timer:SetScript("OnFinished", OnFinished)
 
-	-- Move/rename timer.argsCount -> timer.args.n
-	if timer.argsCount and timer.args then  timer.args.n = timer.argsCount  end
-	timer.argsCount = nil
-
 	-- Upgrade method calls.
 	if type(timer.func)=='string' then
 		-- Store methodName in its own field.
@@ -304,7 +303,7 @@ for _,timer in pairs(activeTimers) do
 		timer.func = timer.object[timer.methodName]
 		-- Store callback's `self` (object) as first parameter.
 		table.insert(timer.args, 1, timer.object)
-		timer.args.n = 1 + timer.args.n
+		timer.argsCount = 1 + timer.argsCount
 	end
 end
 
@@ -314,12 +313,12 @@ end
 -- Embed handling
 
 
--- softassert(condition, message):  Report error without halting.
 local LibCommon = _G.LibCommon or {}  ;  _G.LibCommon = LibCommon
-LibCommon.softassert = LibCommon.softassert or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+--- LibCommon. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
+LibCommon.softassert = LibCommon.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
 
 
--- Embeds AceTimer into the target object making the functions from the mixins list available on target:..
+-- Embeds AceTimer into the target object making the functions from the mixin table available on target:..
 -- @param target target object to embed AceTimer in
 function AceTimer:Embed(target)
 	-- TODO: Remove if no such anomaly found.
@@ -327,7 +326,7 @@ function AceTimer:Embed(target)
 	self = AceTimer
 
 	self.embeds[target] = true
-	for name,method in pairs(self.mixins) do
+	for name,method in pairs(self.mixin) do
 		target[name] = method
 	end
 	return target
@@ -343,7 +342,7 @@ end
 
 
 
--- Some addons use mixins in the form AceTimer.ScheduleTimer(clientObject, callback, delay, ...)
+-- Some addons use mixin methods in the form AceTimer.ScheduleTimer(clientObject, callback, delay, ...)
 AceTimer:Embed(AceTimer)
 
 

@@ -2,8 +2,8 @@
 -- @class file
 -- @name AceDBOptions-3.0
 -- @release $Id: AceDBOptions-3.0.lua 1066 2012-09-18 14:36:49Z nevcairiel $
-local ACEDBO_MAJOR, ACEDBO_MINOR = "AceDBOptions-3.0", 14
-local AceDBOptions, oldminor = LibStub:NewLibrary(ACEDBO_MAJOR, ACEDBO_MINOR)
+local MAJOR, MINOR = "AceDBOptions-3.0", 14
+local AceDBOptions, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 
 if not AceDBOptions then return end -- No upgrade needed
 
@@ -267,7 +267,7 @@ end
 	
 	(empty) - return all available profiles
 	"nocurrent" - returns all available profiles except the currently active profile
-	"common" - returns all avaialble profiles + some commonly used profiles ("char - realm", "realm", "class", "Default")
+	"common" - returns all available profiles + some commonly used profiles ("char - realm", "realm", "class", "Default")
 	"both" - common except the active profile
 ]]
 function OptionsHandlerPrototype:ListProfiles(info)
