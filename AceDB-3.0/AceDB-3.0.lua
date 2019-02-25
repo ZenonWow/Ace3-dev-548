@@ -521,7 +521,7 @@ end
 
 
 -- Weak keyed map  defaults -> meta. Allows garbage collection of defaults, tho seldom happens.
-local defaultsMetas = setmetatable({}, { mode = 'k' })
+local defaultsMetas = setmetatable({}, { __mode = 'k' })
 
 function AceDB.applyMetatable(dest, defaults, metaPrototype)
 	-- TODO: Check if ApplyDefaults() is called when the DB already has metatables (defaults applied).

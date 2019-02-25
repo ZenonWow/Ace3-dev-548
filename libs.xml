@@ -12,8 +12,8 @@ These libraries were stripped, and won't be loaded.
 <!--@end-no-lib-strip@-->
 
 
-<!-- # Common functions -->
-<Include file="LibCommon\all.xml" />
+<!-- # Shared common functions -->
+<Include file="LibShared\all.xml" />
 
 
 <!-- # Baseline features packaged with Ace3 -->

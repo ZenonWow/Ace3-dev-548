@@ -262,10 +262,10 @@ LDB.namestorage      = LDB.namestorage      or {}
 LDB.unreleasedInput  = LDB.unreleasedInput  or {}
 -- All are weak maps. When a dataobject is forgotten (released) LibDataBroker also drops it.
 -- getmetatable(dataobj).__index  holds a reference to `attributes` (the value) so there's no point in making the values weak.
-initmetatable(LDB.proxystorage)    .mode = 'v'  -- name -> dataobj  weak valued map.
-initmetatable(LDB.attributestorage).mode = 'k'  -- dataobj -> attributes  weak keyed map.
-initmetatable(LDB.namestorage)     .mode = 'k'  -- dataobj -> name  weak keyed map.  Names (values) are strings, not working for weak maps.
-initmetatable(LDB.unreleasedInput) .mode = 'k'  -- inputFields -> true  weak keyed map.
+initmetatable(LDB.proxystorage)    .__mode = 'v'  -- name -> dataobj  weak valued map.
+initmetatable(LDB.attributestorage).__mode = 'k'  -- dataobj -> attributes  weak keyed map.
+initmetatable(LDB.namestorage)     .__mode = 'k'  -- dataobj -> name  weak keyed map.  Names (values) are strings, not working for weak maps.
+initmetatable(LDB.unreleasedInput) .__mode = 'k'  -- inputFields -> true  weak keyed map.
 
 
 
@@ -277,7 +277,7 @@ function LDB:InitProxyMetaTable(meta, attributes, name)
 	local LDB = self  -- Make it a local upvalue for __newindex.
 
 	-- Fields are read directly from the backend object in self.attributestorage.
-	meta.__index = attributes,
+	meta.__index = attributes
 
 	-- Individual  __newindex()  closure for every dataobject upvalues `attributes` and `name`: -2 lookups
 	-- for the price of as many closures as dataobjects, that is <100 for 99% of users and <1000 for addon hoarders.

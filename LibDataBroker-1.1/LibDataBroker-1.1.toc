@@ -9,7 +9,7 @@
 ## X-License: Limited BSD
 
 ## LoadOnDemand: 1
-## OptionalDeps: LibStub, LibCommon, CallbackHandler-1.0
+## OptionalDeps: LibStub, LibShared, CallbackHandler-1.0
 
 
 # LibStub\LibStub.lua
