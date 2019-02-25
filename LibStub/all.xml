@@ -6,12 +6,12 @@
 <!-- # Include  LibStub.NewLibrary.lua  in small / one-file libraries. It's the minimal subset to register. -->
 <!-- <Script  file="LibStub.NewLibrary.lua" /> -->
 
-<!-- # Register a non-LibStub library in a backward-compatible manner: -->
+<!-- # Register a non-LibStub library in a backwards-compatible manner: -->
 <Script  file="LibStub.ImportLibrary.lua" />
 
-
 <!-- # Extensions -->
-<Script  file="LibStub.PreCreateLibrary.lua" />
+<Script  file="LibStub.BeforeNewLibrary.lua" />
+<Script  file="LibStub.LibMeta.lua" />
 <Script  file="LibStub.GetDependency.lua" />
 <Script  file="LibStub.Short.lua" />
 <Script  file="LibStub.SetEnv.lua" />

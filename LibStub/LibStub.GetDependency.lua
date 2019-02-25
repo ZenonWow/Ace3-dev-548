@@ -1,26 +1,33 @@
-local _G, LIBSTUB_NAME = _G, LIBSTUB_NAME or 'LibStub'
-local LibStub, LIB_NAME, LIB_REVISION  =  _G[LIBSTUB_NAME], "LibStub.GetDependency", 1
-assert(LibStub, 'Include "LibStub.lua" before LibStub.GetDependency.')
+local GL, LIBSTUB_NAME, LIBSTUB_REVISION = _G, LIBSTUB_NAME or 'LibStub', 3
+local LibStub = assert(GL[LIBSTUB_NAME], 'Include "LibStub.lua" before LibStub.AfterNewLibrary.')
+if LibStub.minor < 3 then  GL.geterrorhandler()( 'Include an updated revision (>=3) of "LibStub.lua" before LibStub.AfterNewLibrary. ')  end
 
+local LIB_NAME, LIB_REVISION  =  "LibStub.AfterNewLibrary", LIBSTUB_REVISION
 
-local LibGetDep, oldrevision = LibStub:NewLibrary(LIB_NAME, LIB_REVISION)
-if LibGetDep then
+-- local LibAfter, oldrevision = LibStub:NewLibrary(LIB_NAME, LIB_REVISION, true)
+-- local LibAfter, oldrevision = LibStub:DefineLibrary(LIB_NAME, LIB_REVISION)
+local LibAfter, oldrevision = LibStub:NewLibrary(LIB_NAME, LIB_REVISION)
+
+if LibAfter then
+	LibStub.LibAfter = LibAfter
+
 	-- Upvalued Lua globals:
-	local ipairs,unpack = ipairs,unpack
+	local pairs,ipairs,unpack = pairs,ipairs,unpack
 
-
+	
 	-----------------------------------------------------------------------------
 	--- LibStub:GetDependencies(client, libname, libname*)
 	-- @param client (library/addon object) - dependent library/addon, not just the name.
 	-- @param libname (string) - the name and major version of required library.
 	-- @return the library objects, or placeholder stubs for not loaded libraries.
-	function LibStub:GetDependencies(client, libname, ...)
+	--
+	function LibStub:GetDependencies(client, lib1, ...)
 		if ... then
 			local libs = {}
-			for i,name in ipairs({ libname, ... }) do  libs[i] = self:GetDependency(client, name, 2)  end
+			for i,libname in ipairs({ lib1, ... }) do  libs[i] = self:GetDependency(client, libname, 2)  end
 			return unpack(libs)
 		else
-			return self:GetDependency(client, libname, 2)
+			return self:GetDependency(client, lib1, 2)
 		end
 	end
 
@@ -30,39 +37,58 @@ if LibGetDep then
 	-- @param client (library/addon object) - dependent library/addon, not just the name.
 	-- @param libname (string) - the name and major version of required library.
 	-- @return the library object, or placeholder stub if not loaded yet.
+	--
 	function LibStub:GetDependency(client, libname, stackdepth)
 		if type(libname)~='string' then  error( "Usage: LibStub:GetDependency(client, libname):  `libname` - expected string, got "..type(libname) , (stackdepth or 1)+1)  end
 		local lib, revision  =  self.libs[libname], self.minors[libname]
 		if lib then  return lib  end
 
 		lib = self.stubs[libname]
+		local dependents = self.libObservers[libname]
 		if not lib then
-			local dependents = { libname = libname }
-			lib = _G.setmetatable({ name = libname, IsNotLoaded = true, dependents = dependents}, self.StubMeta)
+			dependents = { libname = libname }
+			local StubMeta = self.StubMeta
+			local clonedStubMeta = { __tostring = StubMeta.__tostring, __index = StubMeta.__index}
+			lib = _G.setmetatable({ name = libname, IsNotLoaded = true, _dependents = dependents}, clonedStubMeta)
 			dependents.lib = lib
-			-- Avoid PreCreateLibrary's __newindex hook on LibStub.libs
 			self.stubs[libname] = lib
-			self.dependents[libname] = dependents
+			self.libObservers[libname] = dependents
 		end
-		lib.dependents[#lib.dependents+1] = client
+		dependents[#dependents+1] = client
 		return lib
 	end
 
 
 	-----------------------------------------------------------------------------
 	-- On first load:  replace the StubMeta metatable with LibMeta,  clear IsNotLoaded flag
-	function LibGetDep:BeforeDefineLibrary(lib, name)
-		-- if _G.getmetatable(lib) == self.libMeta then  _G.geterrorhandler()("LibStub:_PreCreateLibrary() called twice: from NewLibrary() and LibStub.minors metatable.")  ;  return  end
-		LibStub.stubs[libname] = nil
-		self.loaded[#self.loaded+1] = LibStub.dependents[name]
-		LibStub.dependents[name], lib.dependents, lib.IsNotLoaded = nil,nil,nil
+	--
+	function LibAfter:BeforeNewLibrary(lib, libname)
+		-- Cleanup stub properties/fields.
+		local dependents = LibStub.libObservers[libname]
+
+		if LibStub.stubs[libname] then
+			-- First definition of this lib.
+			if lib.IsNotLoaded == true then  lib.IsNotLoaded = nil  end
+			LibStub.stubs[libname] = nil
+			-- if lib._dependents == dependents then  lib._dependents = nil  end
+		else
+			-- Notify only after first NewLibrary():
+			-- return
+		end
+
+		-- Notify dependents after every NewLibrary() update to the lib.
+		self.notifyList[#self.notifyList+1] = dependents
+		-- The lib will load after this, therefore notify dependents on the next OnUpdate(), after it loaded.
+		-- The initial addon load sequence of wow will load all addons before an OnUpdate is fired, so
+		-- this will notify everybody in one big batch.
+		-- TODO: use ADDON_LOADED instead, with fallback to OnUpdate for libraries loaded dynamically with loadstring().
 		self:RunOnUpdate()
 	end
 
 
-	function LibGetDep:OnUpdate(elapsed)
-		-- One library in one OnUpdate
-		local dependents, client = self.loaded[1]
+	function LibAfter:NotifyDependents(elapsed)
+		-- One library in one OnUpdate. This will change for ADDON_LOADED.
+		local dependents, client = self.notifyList[1]
 		if not dependents then  return  end
 		for i = 1,#dependents do
 			-- Remove before executing:  if it crashes, OnUpdate will be aborted,
@@ -70,34 +96,38 @@ if LibGetDep then
 			client = table.remove(dependents, 1)
 			if client.LibStub_OnLibraryLoaded then  client:LibStub_OnLibraryLoaded(dependents.lib, dependents.libname)  end
 		end
-		table.remove(self.loaded, 1)
-		return 0 < #self.loaded
+		table.remove(self.notifyList, 1)
+		return 0 < #self.notifyList
 	end
 
 
 	if false then
 		local RunOnUpdate = CreateFrame('Frame')
-		getmetatable(RunOnUpdate).__call = function(RunOnUpdate, LibGetDep)  RunOnUpdate.receiver = LibGetDep  ;  RunOnUpdate:Show()  end
-		RunOnUpdate:SetScript('OnUpdate', function(RunOnUpdate, elapsed)  local more = RunOnUpdate.receiver:OnUpdate(elapsed)  ;  RunOnUpdate:Hide()  end)
+		getmetatable(RunOnUpdate).__call = function(RunOnUpdate, LibAfter)  RunOnUpdate.receiver = LibAfter  ;  RunOnUpdate:Show()  end
+		RunOnUpdate:SetScript('OnUpdate', function(RunOnUpdate, elapsed)  local more = RunOnUpdate.receiver:NotifyDependents(elapsed)  ;  RunOnUpdate:Hide()  end)
 		RunOnUpdate:Hide()
-		LibGetDep.RunOnUpdate = RunOnUpdate
+		LibAfter.RunOnUpdate = RunOnUpdate
 	else
-		LibGetDep.RunOnUpdate = CreateFrame('Frame')
-		getmetatable(LibGetDep.RunOnUpdate).__call = function(RunOnUpdate, LibGetDep)  RunOnUpdate.receiver = LibGetDep  ;  RunOnUpdate:SetScript('OnUpdate', RunOnUpdate.OnUpdate)  end
-		function LibGetDep.RunOnUpdate.OnUpdate(RunOnUpdate, elapsed)  local more = RunOnUpdate.receiver:OnUpdate(elapsed)  ;  if not more then RunOnUpdate:SetScript('OnUpdate', nil) end  end
+		LibAfter.RunOnUpdate = CreateFrame('Frame')
+		getmetatable(LibAfter.RunOnUpdate).__call = function(RunOnUpdate, LibAfter)  RunOnUpdate.receiver = LibAfter  ;  RunOnUpdate:SetScript('OnUpdate', RunOnUpdate.OnUpdate)  end
+		function LibAfter.RunOnUpdate.OnUpdate(RunOnUpdate, elapsed)  local more = RunOnUpdate.receiver:OnUpdate(elapsed)  ;  if not more then RunOnUpdate:SetScript('OnUpdate', nil) end  end
 	end
 
 
-	assert(LibStub.RegisterCallback, 'LibStub.GetDependency requires "LibStub.PreCreateLibrary" loaded before.')
-	LibStub:RegisterCallback(LibGetDep)
+	LibAfter.notifyList    = LibAfter.notifyList or {}
+	LibAfter.libObservers  = LibAfter.libObservers or {}
+	LibAfter.StubMeta      = LibAfter.StubMeta or {}
+	LibAfter.StubMeta.__tostring = function(lib)  return  _G.tostring(lib.name or "Library").." (is not loaded yet)"  end
+	LibAfter.StubMeta.__index    = function(lib, field)  error( _G.tostring(lib.name or "Library").." is not loaded yet.", 2)  end
+	-- LibAfter.StubMeta.__newindex = function(lib, field, newvalue)  error(lib.name.." is not loaded yet.", 2)  end
 
-	-- setmetatable(LibStub.minors, { __index = function(minors, libname)  return LibStub.stubs[libname] and 0 or -1  end })
-	LibGetDep.loaded   = LibGetDep.loaded   or {}
-	LibStub.dependents = LibStub.dependents or {}
-	LibStub.StubMeta   = LibStub.StubMeta   or {}
-	LibStub.StubMeta.__tostring = function(lib)  return  lib.name.." (is not loaded yet)"  end
-	LibStub.StubMeta.__index    = function(lib, field)  error(lib.name.." is not loaded yet.", 2)  end
-	LibStub.StubMeta.__newindex = function(lib, field, newvalue)  error(lib.name.." is not loaded yet.", 2)  end
+
+
+	assert(LibStub.AddListener, 'LibStub.GetDependency requires "LibStub.BeforeNewLibrary" loaded before.')
+	LibStub:AddListener(LibAfter)
+
+	-- Notify LibStub of successful load.
+	LibStub:LoadedLibrary(LibMeta)
 
 end
 

@@ -12,8 +12,10 @@
 -- Used from _G:  pairs, next, getmetatable, setmetatable, geterrorhandler
 -- Upvalued Lua globals:  type,getmetatable,setmetatable,rawset
 
+local GL, LIBSTUB_NAME, LIBSTUB_REVISION = _G, LIBSTUB_NAME or 'LibStub', 3
+local LibStub = assert(GL[LIBSTUB_NAME], 'Include "LibStub.lua" before LibStub.AfterNewLibrary.')
 
-local _G, LIBSTUBS_NAME = _G, LIBSTUBS_NAME or 'LibStubs'
+local LIBSTUBS_NAME = LIBSTUBS_NAME or 'LibStubs'
 local Shorty = LibStub:NewLibrary("LibStub.Short", 1)
 
 if Shorty then
@@ -24,10 +26,10 @@ if Shorty then
 	-- Exported to  LibStub.Short:
 	LibStub.Short = LibStub.Short or Shorty.shortNames
 
-	-- Exported to _G:  LibStubs == LibStub.Short
-	_G[LIBSTUBS_NAME] = _G[LIBSTUBS_NAME] or Shorty.shortNames
-	if _G[LIBSTUBS_NAME] ~= Shorty.shortNames then
-		_G.geterrorhandler()("LibStub.Short:  _G."..LIBSTUBS_NAME.." is already in use.")
+	-- Exported to GL:  LibStubs == LibStub.Short
+	GL[LIBSTUBS_NAME] = GL[LIBSTUBS_NAME] or Shorty.shortNames
+	if GL[LIBSTUBS_NAME] ~= Shorty.shortNames then
+		GL.geterrorhandler()("LibStub.Short:  _G."..LIBSTUBS_NAME.." is already in use.")
 	end
 
 
@@ -36,12 +38,12 @@ if Shorty then
 		name = name:gsub("[%-%.]", "")
 		local conflict = shortNames[short]
 		if conflict == lib then  return  end
-		if _G.DEVMODE then  _G.LibShared.softassert(not conflict, 'Warn: LibStub.Short:  There should be no conflicting shortname, and there it is: "'..name..'" vs "'..tostring(conflict.name)..'"."')  end
+		if GL.DEVMODE then  GL.LibShared.softassert(not conflict, 'Warn: LibStub.Short:  There should be no conflicting shortname, and there it is: "'..name..'" vs "'..tostring(conflict.name)..'"."')  end
 		if  conflict  and  name <= (conflict.name or "")  then  return  end
 		shortNames[short] = lib
 	end
 
-	function Shorty:BeforeDefineLibrary(lib, name, revision, oldrevision)
+	function Shorty:BeforeNewLibrary(lib, name, revision, oldrevision)
 		if oldrevision then  return  end    -- Do it only at first definition.
 		-- Insert with subversion, eg.:  AceAddon30
 		-- InsertCheckConflict(self.shortNames, lib, name, name)
@@ -54,12 +56,12 @@ if Shorty then
 	end
 
 	-- Import the loaded libraries from LibStub.
-	for name,lib in _G.pairs(LibStub.libs) do
-		Shorty:BeforeDefineLibrary(lib, name)
+	for name,lib in GL.pairs(LibStub.libs) do
+		Shorty:BeforeNewLibrary(lib, name)
 	end
 
-	assert(LibStub.RegisterCallback, 'LibStub.Short requires "LibStub.PreCreateLibrary" loaded before.')
-	LibStub:RegisterCallback(Shorty)
+	assert(LibStub.AddListener, 'LibStub.Short requires "LibStub.BeforeNewLibrary" loaded before.')
+	LibStub:AddListener(Shorty)
 
 end
 

@@ -1,19 +1,16 @@
-local _G, LibStub, LIB_NAME, LIB_REVISION  =  _G, LibStub, "LibStub.ImportLibrary", 1
-assert(LibStub, 'Include "LibStub.lua" before LibStub.ImportLibrary.')
-LibStub.libs[LIB_NAME] = LibStub.libs[LIB_NAME] or LibStub
+local GL, LIBSTUB_NAME, LIBSTUB_REVISION = _G, LIBSTUB_NAME or 'LibStub', 3
+local LibStub = assert(GL[LIBSTUB_NAME], 'Include "LibStub.lua" before LibStub.GetLibrary.')
+if LibStub.minor < 3 then  GL.geterrorhandler()( 'Include an updated revision (>=3) of "LibStub.lua" before LibStub.BeforeNewLibrary. ')  end
 
---[[
-local oldrevision  =  LibStub.minors[LIB_NAME] or 0
-if oldrevision < LIB_REVISION then
---]]
 
--- if LibStub:NewLibrary(LIB_NAME, LIB_REVISION) then
-do
+-- Check if current version of LibStub.ImportLibrary is obsolete.
+if (LibStub.minors[LibStub.ImportLibrary] or 0) < LIBSTUB_REVISION then
+
 	function LibStub:ImportLibrary(name, revision, lib, noversioncheck)
 		if not lib then  return  end
 		revision = LibStub.torevision(revision)
 		if not revision then
-			_G.errorhandler()( "Usage: LibStub:ImportLibrary(name, revision, lib):  `revision` - expected a number or a string containing a number, got '"..tostring(revision).."'." , (stackdepth or 1)+1 )
+			GL.errorhandler()( "Usage: LibStub:ImportLibrary(name, revision, lib):  `revision` - expected a number or a string containing a number, got '"..tostring(revision).."'." , (stackdepth or 1)+1 )
 			revision = 0
 		end
 		local oldrevision = self.minors[name]
@@ -24,7 +21,7 @@ do
 		-- Optimized path to skip  __newindex()  call in  self.minors'  metatable.
 		-- The minimal LibStub.NewLibrary.lua does not have _newminor(), neither this optimization.
 		-- if not oldrevision then  self._newminor(self.minors, name, revision)  end
-		return lib, oldrevision or 0
+		return lib, oldrevision
 	end
 
 end
