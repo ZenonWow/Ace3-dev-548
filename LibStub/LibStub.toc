@@ -18,7 +18,7 @@
 # Packaged with Ace3
 all.xml
 
-# Include  LibStub.NewLibrary.lua  in small / one-file libraries. It's the minimal subset to register.
+# Include  LibStub.NewLibrary.lua  in small / one-file libraries. It's the minimal subset for registering libraries.
 # LibStub.NewLibrary.lua
 
 

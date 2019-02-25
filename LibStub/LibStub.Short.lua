@@ -23,13 +23,13 @@ if Shorty then
 	-- Short name -> library index
 	Shorty.shortNames = Shorty.shortNames or {}
 
-	-- Exported to  LibStub.Short:
+	-- Exported to LibStub.Short:
 	LibStub.Short = LibStub.Short or Shorty.shortNames
 
 	-- Exported to GL:  LibStubs == LibStub.Short
 	GL[LIBSTUBS_NAME] = GL[LIBSTUBS_NAME] or Shorty.shortNames
 	if GL[LIBSTUBS_NAME] ~= Shorty.shortNames then
-		GL.geterrorhandler()("LibStub.Short:  _G."..LIBSTUBS_NAME.." is already in use.")
+		GL.geterrorhandler()( "LibStub.Short:  _G."..LIBSTUBS_NAME.." is already in use." )
 	end
 
 

@@ -17,7 +17,7 @@ if LibMeta then
 
 	------------------------------
 	--- LibMeta:BeforeNewLibrary(lib, name, revision, oldrevision):
-  -- Adds .name, .revision fields, metatable and pretty print() to the library.
+  -- Add .name, .revision fields, metatable and pretty print() to the library.
 	--
 	function LibMeta:BeforeNewLibrary(lib, name, revision, oldrevision)
 		-- meta.__tostring(lib)  uses the `.name` and `.revision` fields.
