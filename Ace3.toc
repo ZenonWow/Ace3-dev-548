@@ -11,7 +11,7 @@
 
 
 # Shared common functions
-LibShared\all.xml
+LibShared\parts\all.xml
 
 
 # Baseline features packaged with Ace3
@@ -26,7 +26,7 @@ LibSharedMedia-3.0\LibSharedMedia-3.0.lua
 LibDataBroker-1.1\LibDataBroker-1.1.lua
 LibDataBroker-1.1\LibDataBroker.RemoveDataObject.lua
 # LibMinimapIcon was formerly known as LibDBIcon-1.0
-LibMinimapIcon-1.0\LibMinimapIcon-1.0.lua
+LibMinimapIcon\LibMinimapIcon.lua
 
 
 # Ace3 libraries

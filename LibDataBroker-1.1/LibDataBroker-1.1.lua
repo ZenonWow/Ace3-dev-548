@@ -290,7 +290,7 @@ function LDB:InitProxyMetaTable(meta, attributes, name)
 		callbacks:Fire("LibDataBroker_AttributeChanged_"..name,             name, field, newvalue, dataobj)
 		callbacks:Fire("LibDataBroker_AttributeChanged_"..name.."_"..field, name, field, newvalue, dataobj)
 		callbacks:Fire("LibDataBroker_AttributeChanged__"..field,           name, field, newvalue, dataobj)
-	end,
+	end
 
 	-- For the sake of completeness #dataobj can be introduced to make ipairs(dataobj) work as expected, but until dataobjects are used as arrays, its pointless.
 	-- Lua 5.2:  http://lua-users.org/wiki/LuaFiveTwo
@@ -347,7 +347,7 @@ if use_domt then
 	LDB.domt = LDB.domt or {}
 
 	-- Since MINOR = 5  `attributestorage[dataobj]`  is never nil. It exists from :NewDataObject(name, dataobj) until :RemoveDataObject(dataobj).
-	LDB.domt.__index = function(dataobj, field)  return LDB.attributestorage[dataobj][field]  end,
+	LDB.domt.__index = function(dataobj, field)  return LDB.attributestorage[dataobj][field]  end
 
 	LDB.domt.__newindex = function(dataobj, field, newvalue)
 		local attributes = LDB.attributestorage[dataobj]

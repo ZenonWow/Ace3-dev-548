@@ -80,7 +80,7 @@ if not AceEvent.events then
 	AceEvent.events = CallbackHandler:New(AceEvent, "RegisterEvent", "UnregisterEvent", "UnregisterAllEvents")
 end
 
-function AceEvent.mixin:IsEventRegistered(eventname)
+function AceEvent:IsEventRegistered(eventname)
 	assert(self ~= AceEvent, "Usage: receiver:IsEventRegistered(`eventname`): do not use AceEvent:IsEventRegistered(), use your own object as self/`receiver`", 2)
 	local callbacks = rawget(AceEvent.events.events, eventname)
 	return  callbacks  and  callbacks[self] ~= nil
@@ -103,7 +103,7 @@ end
 
 if not AceEvent.messages then
 	AceEvent.messages = CallbackHandler:New(AceEvent, "RegisterMessage", "UnregisterMessage", "UnregisterAllMessages")
-	AceEvent.mixin.SendMessage = AceEvent.messages.Fire
+	AceEvent.SendMessage = AceEvent.messages.Fire
 end
 
 

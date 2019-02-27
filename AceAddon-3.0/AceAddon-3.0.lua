@@ -57,7 +57,7 @@ local xpcall = xpcall
 -- Export to LibShared:  AutoTablesMeta, errorhandler, softassert, safecall/safecallDispatch
 local LibShared = _G.LibShared or {}  ;  _G.LibShared = LibShared
 LibShared.istype2 = LibShared.istype2 or  function(value, t1, t2, t3)
-	local t = type(value)  ;  if t==t1 or t==t2 or t==t3 then return value end  ;  return nil
+	local t=type(value)  ;  if t==t1 or t==t2 then return value or true end  ;  return nil
 end
 
 -- AutoTablesMeta: metatable that automatically creates empty inner tables when keys are first referenced.

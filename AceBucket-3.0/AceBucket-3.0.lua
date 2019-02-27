@@ -47,17 +47,24 @@ local _G, AceBucket, oldminor = _G, LibStub:NewLibrary(MAJOR, MINOR)
 if not AceBucket then return end -- No Upgrade needed
 
 
--- Export to LibShared:  errorhandler
--- Import from LibShared:
-local LibShared = _G.LibShared
-assert(LibShared and LibShared.istype2 and LibShared.istype, "AceBucket-3.0 requires LibShared.istype2, LibShared.istype")
-local istype2, isstring, isfunc, istable = LibShared.istype2, LibShared.isstring, LibShared.isfunc, LibShared.istable
+-- Export to LibShared:  istype2, isstring, isfunc, istable, errorhandler
+local LibShared = _G.LibShared or {}  ;  _G.LibShared = LibShared
+
+LibShared.isstring   = LibShared.isstring   or function(value)  return  type(value)=='string'   and value  end
+LibShared.istable    = LibShared.istable    or function(value)  return  type(value)=='table'    and value  end
+LibShared.isfunc     = LibShared.isfunc     or function(value)  return  type(value)=='function' and value  end
+
+--- LibShared.istype2(value, t1, t2):  Test if value is one of 2 types.
+LibShared.istype2 = LibShared.istype2 or  function(value, t1, t2)
+	local t=type(value)  ;  if t==t1 or t==t2 then return value or true end  ;  return nil
+end
 
 
 -- Allow hooking _G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
 -- Avoiding tailcall: errorhandler() function would show up as "?" in stacktrace, making it harder to understand.
 LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  return true and _G.geterrorhandler()(errorMessage)  end
 local errorhandler = LibShared.errorhandler
+local istype2, isstring, isfunc, istable = LibShared.istype2, LibShared.isstring, LibShared.isfunc, LibShared.istable
 	
 
 -- the libraries will be lazyly bound later, to avoid errors due to loading order issues
@@ -236,7 +243,7 @@ local function RegisterBucket(owner, event, interval, callback, isMessage, first
 	end
 	
 	local RegisterCallback = isMessage and AceEvent.RegisterMessage or AceEvent.RegisterEvent
-	for _,e in ipairsOrOne(event) do
+	for _,e in LibShared.Require.ipairsOrOne(event) do
 		RegisterCallback(bucket, e, 'handler')
 	end
 	
