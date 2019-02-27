@@ -1,12 +1,12 @@
 local GL, LIBSTUB_NAME, LIBSTUB_REVISION = _G, LIBSTUB_NAME or 'LibStub', 3
 local LibStub = assert(GL[LIBSTUB_NAME], 'Include "LibStub.lua" before LibStub.AfterNewLibrary.')
-if LibStub.minor < 3 then  GL.geterrorhandler()( 'Include an updated revision (>=3) of "LibStub.lua" before LibStub.AfterNewLibrary. ')  end
+if LibStub.minor < 3 then  GL.geterrorhandler()( 'Include an updated revision (>=3) of "LibStub.lua" before LibStub.AfterNewLibrary.')  end
 
 local LIB_NAME, LIB_REVISION  =  "LibStub.AfterNewLibrary", LIBSTUB_REVISION
 
 -- local LibAfter, oldrevision = LibStub:NewLibrary(LIB_NAME, LIB_REVISION, true)
 -- local LibAfter, oldrevision = LibStub:DefineLibrary(LIB_NAME, LIB_REVISION)
-local LibAfter, oldrevision = LibStub:NewLibrary(LIB_NAME, LIB_REVISION)
+local LibAfter, oldrevision = LibStub:BeginLibrary(LIB_NAME, LIB_REVISION)
 
 if LibAfter then
 	LibStub.LibAfter = LibAfter
@@ -44,41 +44,41 @@ if LibAfter then
 		if lib then  return lib  end
 
 		lib = self.stubs[libname]
-		local dependents = self.libObservers[libname]
+		local observers = self.libObservers[libname]
 		if not lib then
-			dependents = { libname = libname }
+			observers = { libname = libname }
 			local StubMeta = self.StubMeta
 			local clonedStubMeta = { __tostring = StubMeta.__tostring, __index = StubMeta.__index}
-			lib = _G.setmetatable({ name = libname, IsNotLoaded = true, _dependents = dependents}, clonedStubMeta)
-			dependents.lib = lib
+			lib = _G.setmetatable({ name = libname, IsNotLoaded = true, _observers = observers}, clonedStubMeta)
+			observers.lib = lib
 			self.stubs[libname] = lib
-			self.libObservers[libname] = dependents
+			self.libObservers[libname] = observers
 		end
-		dependents[#dependents+1] = client
+		observers[#observers+1] = client
 		return lib
 	end
 
 
 	-----------------------------------------------------------------------------
-	-- On first load:  replace the StubMeta metatable with LibMeta,  clear IsNotLoaded flag
+	-- Before updating a library:  add observers to the notifyList.
 	--
 	function LibAfter:BeforeNewLibrary(lib, libname)
 		-- Cleanup stub properties/fields.
-		local dependents = LibStub.libObservers[libname]
+		local observers = LibStub.libObservers[libname]
 
 		if LibStub.stubs[libname] then
 			-- First definition of this lib.
 			if lib.IsNotLoaded == true then  lib.IsNotLoaded = nil  end
 			LibStub.stubs[libname] = nil
-			-- if lib._dependents == dependents then  lib._dependents = nil  end
+			-- if lib._observers == observers then  lib._observers = nil  end
 		else
 			-- Notify only after first NewLibrary():
 			-- return
 		end
 
-		-- Notify dependents after every NewLibrary() update to the lib.
-		self.notifyList[#self.notifyList+1] = dependents
-		-- The lib will load after this, therefore notify dependents on the next OnUpdate(), after it loaded.
+		-- Notify observers after every NewLibrary() update to the lib.
+		self.notifyList[#self.notifyList+1] = observers
+		-- The lib will load after this, therefore notify observers on the next OnUpdate(), after it loaded.
 		-- The initial addon load sequence of wow will load all addons before an OnUpdate is fired, so
 		-- this will notify everybody in one big batch.
 		-- TODO: use ADDON_LOADED instead, with fallback to OnUpdate for libraries loaded dynamically with loadstring().
@@ -88,13 +88,13 @@ if LibAfter then
 
 	function LibAfter:NotifyDependents(elapsed)
 		-- One library in one OnUpdate. This will change for ADDON_LOADED.
-		local dependents, client = self.notifyList[1]
-		if not dependents then  return  end
-		for i = 1,#dependents do
+		local observers, client = self.notifyList[1]
+		if not observers then  return  end
+		for i = 1,#observers do
 			-- Remove before executing:  if it crashes, OnUpdate will be aborted,
 			-- processing will continue in next OnUpdate() with remaining clients.
-			client = table.remove(dependents, 1)
-			if client.LibStub_OnLibraryLoaded then  client:LibStub_OnLibraryLoaded(dependents.lib, dependents.libname)  end
+			client = table.remove(observers, 1)
+			if client.LibStub_OnLibraryLoaded then  client:LibStub_OnLibraryLoaded(observers.lib, observers.libname)  end
 		end
 		table.remove(self.notifyList, 1)
 		return 0 < #self.notifyList
@@ -127,7 +127,7 @@ if LibAfter then
 	LibStub:AddListener(LibAfter)
 
 	-- Notify LibStub of successful load.
-	LibStub:LoadedLibrary(LibMeta)
+	LibStub:EndLibrary(LibAfter)
 
 end
 

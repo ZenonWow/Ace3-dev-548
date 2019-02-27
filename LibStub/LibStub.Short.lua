@@ -38,7 +38,7 @@ if Shorty then
 		name = name:gsub("[%-%.]", "")
 		local conflict = shortNames[short]
 		if conflict == lib then  return  end
-		if GL.DEVMODE then  GL.LibShared.softassert(not conflict, 'Warn: LibStub.Short:  There should be no conflicting shortname, and there it is: "'..name..'" vs "'..tostring(conflict.name)..'"."')  end
+		if GL.DEVMODE and conflict then  GL.LibShared.softassertf(false, 'Warn: LibStub.Short:  There should be no conflicting shortname, and there it is: %q vs %q.', name, tostring(conflict.name))  end
 		if  conflict  and  name <= (conflict.name or "")  then  return  end
 		shortNames[short] = lib
 	end

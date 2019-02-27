@@ -1,6 +1,6 @@
 local GL, LIBSTUB_NAME, LIBSTUB_REVISION = _G, LIBSTUB_NAME or 'LibStub', 3
 local LibStub = assert(GL[LIBSTUB_NAME], 'Include "LibStub.lua" before LibStub.AfterNewLibrary.')
-if LibStub.minor < 3 then  GL.geterrorhandler()( 'Include an updated revision (>=3) of "LibStub.lua" before LibStub.AfterNewLibrary. ')  end
+if LibStub.minor < 3 then  GL.geterrorhandler()( 'Include an updated revision (>=3) of "LibStub.lua" before LibStub.AfterNewLibrary.')  end
 
 local LIB_NAME, LIB_REVISION  =  "LibStub.LibMeta", LIBSTUB_REVISION
 
@@ -66,7 +66,7 @@ if LibMeta then
 	LibStub:AddListener(LibAfter)
 
 	-- Notify LibStub of successful load.
-	LibStub:LoadedLibrary(LibMeta)
+	LibStub:EndLibrary(LibMeta)
 
 end -- LibStub.LibMeta
 

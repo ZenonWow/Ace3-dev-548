@@ -1,6 +1,6 @@
 local GL, LIBSTUB_NAME, LIBSTUB_REVISION = _G, LIBSTUB_NAME or 'LibStub', 3
 local LibStub = assert(GL[LIBSTUB_NAME], 'Include "LibStub.lua" before LibStub.BeforeNewLibrary.')
-if LibStub.minor < 3 then  GL.geterrorhandler()( 'Include an updated revision (>=3) of "LibStub.lua" before LibStub.BeforeNewLibrary. ')  end
+if LibStub.minor < 3 then  GL.geterrorhandler()( 'Include an updated revision (>=3) of "LibStub.lua" before LibStub.BeforeNewLibrary.')  end
 
 
 -- Check if current version of LibStub.BeforeNewLibrary is obsolete.

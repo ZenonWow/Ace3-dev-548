@@ -36,33 +36,63 @@ if (LibStub.minors[LibStub.NewLibrary] or LibStub.minor or 0) < LIBSTUB_REVISION
 	local function torevision(version)  return  tonumber(version)  or  type(version)=='string' and tonumber(strmatch(version, "%d+"))  end
 	LibStub.torevision = torevision
 
+
 	-----------------------------------------------------------------------------
-	--- LibStub:NewLibrary(name, revision): Declare a library implementation.
+	--- LibStub:NewLibrary(name, revision):  Declare a library implementation.
 	-- Returns the library object if declared revision is an upgrade and needs to be loaded.
 	-- @param name (string) - the name and major version of the library.
-	-- @param revision (number/string) - the minor version of the library.
+	-- @param revision (number/string) - the minor version of the library. Increment it when an updated version is released.
 	-- @return nil  if newer or same revision of the library is already present.
-	-- @return old library object (empty table at first) if upgrade is needed.
+	-- @return old library object (empty table initially) if upgrade is needed.
 	--
-	function LibStub:NewLibrary(name, revision, _, _, stackdepth)
+	function LibStub:NewLibrary(name, revision, lib)
 		if type(name)~='string' then
-			GL.error( "Usage: LibStub:NewLibrary(name, revision):  `name` - string expected, got "..type(name) , (stackdepth or 1)+1 )
+			GL.error( "Usage: LibStub:NewLibrary(name, revision):  `name` - string expected, got "..type(name) , 2 )
 		end
 
-		revision = torevision(revision)
-		if not revision then
-			GL.error( "Usage: LibStub:NewLibrary(name, revision):  `revision` - expected a number or a string containing a number, got '"..tostring(revision).."'." , (stackdepth or 1)+1 )
+		local rev = torevision(revision)
+		if not rev then
+			GL.error( "Usage: LibStub:NewLibrary(name, revision):  `revision` - expected a number or a string containing a number, got '"..tostring(revision).."'." , 2 )
 		end
 
 		local oldrevision = self.minors[name]
-		if oldrevision and oldrevision >= revision then  return nil  end
+		if oldrevision and oldrevision >= rev then  return nil  end
 
-		local lib =  self.libs[name]  or  self.stubs[name]  or  {}
-		self.libs[name], self.minors[name] = lib, revision
-		
+		local lib =  self.libs[name]  or  lib  or  self.stubs[name]  or  {}
+		self.libs[name], self.minors[name] = lib, rev
+
 		-- Support BeforeNewLibrary and AfterNewLibrary event dispatchers.
-		self:BeforeNewLibrary(lib, name, revision, oldrevision)
+		self:BeforeNewLibrary(lib, name, rev, oldrevision)
 		return lib, oldrevision
+	end
+
+
+	-----------------------------------------------------------------------------
+	--- LibStub:ImportLibrary(name, revision, libObject):  Import an existing library to the LibStub registry.
+	-- Returns the library object if there's no higher revision in the registry.
+	-- @param name (string) - the name and major version of the library.
+	-- @param revision (number/string) - the minor version of the library. Increment it when an updated version is released.
+	-- @return nil  if newer or same revision of the library is already present.
+	-- @return old library object (empty table initially) if upgrade is needed.
+	-- This is the same implementation as :NewLibrary(). In the future the implementations might become different.
+	-- Using  :ImportLibrary()  clearly marks this specific use-case.
+	--
+	LibStub.ImportLibrary = LibStub.NewLibrary
+
+
+	-----------------------------------------------------------------------------
+	--- LibStub:BeginLibrary(name, revision):  Fail-safe for declaring a library implementation.
+	-- If it fails to call LibStub:EndLibrary(lib) at the end, then same revision loaded from different addon will try again.
+	-- Loading might succeed at a later time, when a missing dependency became available.
+	function LibStub:BeginLibrary(name, revision)
+		local lib, oldrevision = self:NewLibrary(name, revision)
+		self.minors[name] = oldrevision
+		lib.oldrevision = oldrevision
+	end
+
+	function LibStub:EndLibrary(lib)
+		self.minors[lib.name] = lib.revision
+		lib.oldrevision = nil
 	end
 
 
@@ -79,7 +109,10 @@ if (LibStub.minors[LibStub.NewLibrary] or LibStub.minor or 0) < LIBSTUB_REVISION
 	-- LibStub.minors[LibStub.BeforeNewLibrary] = LibStub.minors[LibStub.BeforeNewLibrary] or 0
 	
 	-- Weak-keyed hashmap will let the old functions be garbagecollected after they are upgraded by a new revision.
-	if not GL.getmetatable(LibStub.minors) then  GL.setmetatable(LibStub.minors, { __mode = 'k' })  end
+	local meta = GL.getmetatable(LibStub.minors)
+	if meta then  meta.__mode = 'k'
+	else  GL.setmetatable(LibStub.minors, { __mode = 'k' })
+  end
 
 end -- LibStub.NewLibrary
 
