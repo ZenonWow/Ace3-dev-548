@@ -52,13 +52,13 @@ local type, pairs, next, error = type, pairs, next, error
 local setmetatable, getmetatable, rawset, rawget = setmetatable, getmetatable, rawset, rawget
 
 -- WoW APIs
-local _G = _G
+local GL = _G
 
 -- Global vars/functions that we don't upvalue since they might get hooked, or upgraded
 -- List them here for Mikk's FindGlobals script
 -- GLOBALS: LibStub
 
--- AceDB.db_registry = AceDB.db_registry or {}
+AceDB.db_registry = AceDB.db_registry or {}
 AceDB.registry = AceDB.registry or {}
 AceDB.frame = AceDB.frame or CreateFrame("Frame")
 
@@ -102,33 +102,22 @@ local DBObjectMixin = {}
 
 local CallbackHandler
 local CallbackDummy = { Fire = function() end }
-DBObjectMixin.callbacks = CallbackDummy
-
-function DBObjectMixin:RegisterCallback(...)
-	CallbackHandler = CallbackHandler or LibStub("CallbackHandler-1.0")
-
-	self.callbacks = CallbackHandler:New(self)
-	-- Safety check to avoid infinite recursion by programming error.
-	assert(self.RegisterCallback ~= DBObjectMixin.RegisterCallback, "Failed to do CallbackHandler:New()")
-	-- Call the real RegisterCallback() created by CallbackHandler.
-	self:RegisterCallback(...)
-end
 
 
 --[[-------------------------------------------------------------------------
   Metaprogramming functions
 ---------------------------------------------------------------------------]]
 
-local LibShared = _G.LibShared or {}  ;  _G.LibShared = LibShared
+local LibShared = GL.LibShared or {}  ;  GL.LibShared = LibShared
 
 -------------------------------------------------
 --- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
-LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or GL.geterrorhandler()(message)  end
 
 -------------------------------------------------
 --- LibShared. softassertf( condition, messageFormat, formatParameter...):  Report error, then continue execution, _unlike_ assert(). Formatted error message.
 LibShared.softassertf = LibShared.softassertf  or  function(ok, messageFormat, ...)
-	if ok then  return ok,nil  end  ;  local message = format(messageFormat, ...)  ;  _G.geterrorhandler()(message)  ;  return ok,message
+	if ok then  return ok,nil  end  ;  local message = format(messageFormat, ...)  ;  GL.geterrorhandler()(message)  ;  return ok,message
 end
 
 -------------------------------------------------
@@ -149,10 +138,11 @@ LibShared.istable   = LibShared.istable   or function(value)  return  type(value
 
 --- LibShared.istype3(value, t1, t2, t3):  Test if value is one of 3 types.
 LibShared.istype3 = LibShared.istype3 or  function(value, t1, t2, t3)
-	local t=type(value)  ;  if t==t1 or t==t2 or t==t3 then return value end  ;  return nil
+	local t=type(value)  ;  if t==t1 or t==t2 or t==t3 then return value or true end  ;  return nil
 end
 
-local softassert,softassertf,asserttype,isstring,istable,istype3 = LibShared.softassert,LibShared.softassertf,LibShared.asserttype,LibShared.isstring,LibShared.istable,LibShared.istype3
+local softassert,softassertf,asserttype,asserttypeOrNil  =  LibShared.softassert,LibShared.softassertf,LibShared.asserttype,LibShared.asserttypeOrNil
+local isstring,istable,istype3  =  LibShared.isstring,LibShared.istable,LibShared.istype3
 
 -------------------------------------------------
 --- LibShared. AutoTablesMeta:  metatable that auto-creates empty inner tables when first referenced.
@@ -181,7 +171,7 @@ local nonext = LibShared.nonext
 --
 LibShared.pairsOrNil = LibShared.pairsOrNil  or  function(t)
   if type(t)=='table' then  return next ,t,nil
-  elseif t then _G.geterrorhandler()("pairsOrNil(t) expected table or nil, got "..type(t))
+  elseif t then GL.geterrorhandler()("pairsOrNil(t) expected table or nil, got "..type(t))
 	end
   return nonext,t,nil
 end
@@ -655,11 +645,11 @@ local tokenLocale = {}
 tokenLocale['class'],sectionKeys['class']  =  UnitClass('player')
 tokenLocale['race'], sectionKeys['race']   =  UnitRace('player')
 
-local regionKey  =  _G.GetCurrentRegion and ({"US","KR","EU","TW","CN"})[_G.GetCurrentRegion()]
+local regionKey  =  GL.GetCurrentRegion and ({"US","KR","EU","TW","CN"})[GL.GetCurrentRegion()]
 	or  string.sub(GetCVar('realmList'), 1, 2):upper()
 
-sectionKeys['char']   =  UnitName('player')..' - '..sectionKeys.realm
 sectionKeys['realm']  =  GetRealmName()
+sectionKeys['char']   =  UnitName('player')..' - '..sectionKeys.realm
 
 sectionKeys['faction'],tokenLocale['faction']  =  UnitFactionGroup('player')
 sectionKeys['factionrealm']        =  sectionKeys.faction.." - "..sectionKeys.realm
@@ -689,21 +679,30 @@ local tokenKeys = {
 	global       = false,              -- The equivalent of a 'global' section is a shared profile, useless as token.
 	profile      = false,              -- .profile==true is meaningless here.
 }
-tokenLocale.Default = _G.DEFAULT
+tokenLocale.Default = GL.DEFAULT
 
 tokenKeys['gender']     = ({ "Neutral","Male","Female" })[UnitSex('player')]  -- 2 = Male, 3 = Female
 tokenKeys['racegender'] = sectionKeys.race.."-"..tokenKeys.gender
 
--- tokenLocale['gender']      = _G[tokenKeys.gender:upper()]
--- tokenLocale['gender']      = _G[ ({ nil, 'MALE', 'FEMALE' })[UnitSex('player')] ]
-tokenLocale['gender']      = _({ nil, _G.MALE, _G.FEMALE })[UnitSex('player')]
+-- tokenLocale['gender']      = GL[tokenKeys.gender:upper()]
+-- tokenLocale['gender']      = GL[ ({ nil, 'MALE', 'FEMALE' })[UnitSex('player')] ]
+tokenLocale['gender']      = ({ nil, GL.MALE, GL.FEMALE })[UnitSex('player')]
 tokenLocale['racegender']  = tokenLocale.race.."-"..tokenLocale.gender
 
 
+
+
+local tokenDynamic = {}
+-- Translations of keys, exported for addons and AceDB-Options:  AceDB.keyLocale
+-- keyLocale (maps key -> translation) is different from tokenLocale (maps token -> translation)
+local keyLocale = {}
+local keyGlobale = {}
+
+
 function AceDB.SetTokenKey(tokenKeys, token, newvalue)
-	local oldvalue = tokenDynamic[token]
+	local oldvalue      = tokenDynamic[token]
 	tokenDynamic[token] = newvalue
-	tokenLocale[token]    = keyLocale[token]
+	tokenLocale[token]  = keyLocale[token]
 	getmetatable(tokenKeys)._callbacks:Fire(token, newvalue, oldvalue)
 end
 
@@ -724,29 +723,30 @@ function getmetatable(tokenKeys):RegisterCallback(...)
 end
 --]]
 
-function tokenKeys:RegisterCallback(...)
+function tokenKeys.RegisterCallback(receiver, ...)
 	CallbackHandler = CallbackHandler or LibStub("CallbackHandler-1.0")
-	local was = self.RegisterCallback
-	getmetatable(self)._callbacks = CallbackHandler:New(self)
+	local was = tokenKeys.RegisterCallback
+	getmetatable(tokenKeys)._callbacks = CallbackHandler:New(tokenKeys)
 	-- Safety check to avoid infinite recursion by programming error.
-	assert(self.RegisterCallback ~= was, "Failed to do CallbackHandler:New()")
+	assert(tokenKeys.RegisterCallback ~= was, "Failed to do CallbackHandler:New()")
 	-- Call the real RegisterCallback() created by CallbackHandler.
-	self:RegisterCallback(...)
+	tokenKeys.RegisterCallback(receiver, ...)
 end
 
 
--- Translations of keys, exported for addons and AceDB-Options:  AceDB.keyLocale
--- keyLocale (maps key -> translation) is different from tokenLocale (maps token -> translation)
-local keyLocale = {}
-local keyGlobale = {}
 
--- keyLocale[DefaultProfileKey] = _G.DEFAULT
--- keyGlobale[_G.DEFAULT] = DefaultProfileKey
 
-for token,translated in tokenLocale do
-	local englishKey = sectionKeys[token]
-	keyLocale[englishKey] = translated
-	keyGlobale[translated] = englishKey
+-- keyLocale[DefaultProfileKey] = GL.DEFAULT
+-- keyGlobale[GL.DEFAULT] = DefaultProfileKey
+
+for token,translated in pairs(tokenLocale) do
+	local englishKey = tokenKeys[token]
+	if not englishKey then
+		print("AceDB:  Lost token='"..tostring(token).."' englishKey='"..tostring(englishKey).."'")
+	else
+		keyLocale[englishKey] = translated
+		keyGlobale[translated] = englishKey
+	end
 end
 
 -- Add further additions to keyLocale as well.
@@ -838,8 +838,10 @@ local mandatoryFields = {
 	name       = false,
 	defaults   = false,
 	defaultProfileKey = false,
+	--
+	ProfilePriority = false,
 	-- Fields initialized by db:RegisterCallback():
-	callbacks  = false,
+	callbacks  = true,
 	RegisterCallback       = false,
 	UnregisterCallback     = false,
 	UnregisterAllCallbacks = false,
@@ -857,7 +859,7 @@ dbmt.__index = function(db, field)
 		local sectionDefaults = rawget(db, 'defaults') and db.defaults[field]
 		local sectionDB,new = initSection(db.sv, field, key, sectionDefaults)
 
-		if _G.DEVMODE then  softassert(not getmetatable(db).__newindex, "Some addon set  getmetatable(db).__newindex.  rawset() might be necessary.")  end
+		if GL.DEVMODE then  softassert(not getmetatable(db).__newindex, "Some addon set  getmetatable(db).__newindex.  rawset() might be necessary.")  end
 		db[field] = sectionDB
 
 		if new and field == 'profile' then
@@ -881,7 +883,7 @@ dbmt.__index = function(db, field)
 
 		local mixinMethod = DBObjectMixin[field]
 		if mixinMethod then
-			if  not db.parent  or  field=='RegisterDefaults'  or  field=='ResetProfile'  then
+			if  not db.parent  or  field=='RegisterDefaults'  or  field=='ResetProfile'  or  field=='RegisterCallback'  then
 				return mixinMethod
 			else
 				error("AceDB:  db:"..tostring(field).."() method is not available for child-databases aka. namespaces.")
@@ -890,12 +892,12 @@ dbmt.__index = function(db, field)
 
 		local mustHave = mandatoryFields[field]
 		if mustHave then
-			-- sv, keys
+			-- sv, keys, callbacks
 			error("AceDB:  db."..tostring(field).." was set to nil.")
 		elseif mustHave == nil then
 			softassert(false, "AceDB:  unexpected field  db."..tostring(field).." (=nil)  was accessed.")
 		else
-			-- defaults, name, parent, children, callbacks,	RegisterCallback,	UnregisterCallback,	UnregisterAllCallbacks
+			-- defaults, name, parent, children, ProfilePriority, RegisterCallback, UnregisterCallback, UnregisterAllCallbacks
 		end
 
 		-- Stop triggering __index()
@@ -907,7 +909,7 @@ end
 
 
 
-local function profileName(sv, key)
+local function getProfileName(sv, key)
 	-- Get the human-readable (localized or user-provided) profile name.
 	return  sv.profileKeys[key]  or  key
 end
@@ -924,7 +926,7 @@ end
 -- or hooked/replaced globally as AceDB.DBObjectMixin:GetDefaultProfileName()
 --
 function DBObjectMixin:GetDefaultProfileName()
-	local sv, prio, profileName = self.sv, self.ProfilePriority or AceDB.DefaultProfilePriority
+	local sv, prio, profileName = self.sv, rawget(self, 'ProfilePriority') or AceDB.DefaultProfilePriority
 	for i,token in ipairs(prio) do
 		profileName = profileExists(sv, tokenKeys[token])
 		if profileName then  return profileName  end
@@ -932,7 +934,7 @@ function DBObjectMixin:GetDefaultProfileName()
 
 	return  nil
 		-- or  sv.profileKeys[DefaultProfileKey]     -- If `profileKeys.Default` is set then create profile with that name.
-		or  profileName(sv, self.defaultProfileKey)  -- Addon provided default, or globally set AceDB.Global.DefaultProfileKey. Will be created if not existing.
+		or  getProfileName(sv, self.defaultProfileKey)  -- Addon provided default, or globally set AceDB.Global.DefaultProfileKey. Will be created if not existing.
 		or  tokenKeys.char
 end	
 
@@ -985,17 +987,22 @@ local function initdb(sv, defaults, defaultProfileToken, oldDB, parentDB)
 
 	-- This allows us to use this function to reset an entire database
 	-- Clear out the old database
+	local db
 	if type(oldDB)=='string' then
-		oldDB = { name = oldDB }
+		db = { name = oldDB }
+		oldDB = nil
 	elseif oldDB then
+		setmetatable(oldDB, nil)    -- To be safe from accidental lookups.
 		for k,v in pairs(oldDB) do if not preserveFields[k] then oldDB[k] = nil end end
+		db = oldDB
 	end
 
-	-- Give this database the metatable so it initializes dynamically
-	local db = setmetatable(oldDB or {}, dbmt)
+	-- Init .keys first for dbmt.__index, which expects it to be there.
+	db.keys = setmetatable({}, keysMeta)
 	db.sv = sv
+	db.callbacks = CallbackDummy
 	db.defaults = defaults or false    -- default to false to avoid __index() lookup
-	parentDB    = parentDB or db.parent
+	parentDB    = parentDB or oldDB and oldDB.parent
 	db.parent   = parentDB or false
 	if parentDB then
 		-- Namespaces don't need profileKeys.
@@ -1005,6 +1012,9 @@ local function initdb(sv, defaults, defaultProfileToken, oldDB, parentDB)
 	end
 	sv.profiles     = sv.profiles or {}
 	-- db.profiles     = sv.profiles  -- initialized on demand
+
+	-- Set the database metatable so db.<section> requests are initialized on demand.
+	setmetatable(db, AceDB.dbmt)
 
 	local defaultProfile, profileName
 
@@ -1028,7 +1038,7 @@ local function initdb(sv, defaults, defaultProfileToken, oldDB, parentDB)
 		-- Plain profile key/name is also accepted.
 		db.defaultProfileKey = tokenKeys[defaultProfileToken]  or defaultProfileToken  or AceDB.Global.DefaultProfileKey
 		defaultProfile = db:GetDefaultProfileName()
-		profileKeys[charKey] =  profileName ~= defaultProfile  and  profileName  or  nil
+		profileKeys[sectionKeys.char] =  profileName ~= defaultProfile  and  profileName  or  nil
 
 		if  not profileName  and  profileKeys.Default ~= nil  and  profileKeys.Default ~= defaultProfile  then
 			print('AceDB["'..db.name..'"] default profile changed: ', profileKeys.Default, ' -> ', defaultProfile)
@@ -1039,18 +1049,28 @@ local function initdb(sv, defaults, defaultProfileToken, oldDB, parentDB)
 		profileKeys.Default = defaultProfile
 		-- profileKeys.Shared  = sharedProfile
 	end
+	
+	db.keys.profile = profileName or defaultProfile
 
-	db.keys = setmetatable({ profile = profileName or defaultProfile }, keysMeta)
 	-- Garbage collection:  Remove identity and default mappings from sv.profileKeys
 	if not parentDB then  AceDB.CleanProfileKeys(sv)  end
 
-	--[[ db.callbacks are created by DBObjectMixin:RegisterCallback() on demand: when the addon first registers a callback.
-	if not db.callbacks then
-		-- try to load CallbackHandler-1.0 if it loaded after our library
-		if not CallbackHandler then CallbackHandler = LibStub("CallbackHandler-1.0", true) end
-		db.callbacks = CallbackHandler and CallbackHandler:New(db) or CallbackDummy
+
+	db.callbacks = db.callbacks or CallbackDummy
+	
+	-- Need to create a closure with one upvalue:  db..
+	-- There's a receiver instead of self.
+	db.RegisterCallback = db.RegisterCallback  or  function(receiver, ...)
+		CallbackHandler = CallbackHandler or LibStub("CallbackHandler-1.0")
+
+		local was = db.RegisterCallback
+		db.callbacks = CallbackHandler:New(db)
+		-- Safety check to avoid infinite recursion by programming error.
+		assert(db.RegisterCallback ~= was, "Failed to do CallbackHandler:New()")
+		-- Call the real RegisterCallback() created by CallbackHandler.
+		db.RegisterCallback(receiver, ...)
 	end
-	--]]
+
 
 	--[[ Handled by inheritance in  dbmt.__index()
 	-- Copy methods locally into the database object, to avoid hitting
@@ -1142,7 +1162,7 @@ function DBObjectMixin:RegisterDefaults(defaults)
 	if self.defaults then
 		-- pairs(self) iterates the created sections and a few other fields filtered out by sectionKeys[]
 		for section,sectionDB in pairs(self) do
-			local sectionDefaults =  sectionKeys[section]  and  defaults[section]
+			local sectionDefaults =  sectionKeys[section]  and  self.defaults[section]
 			if sectionDefaults then
 				AceDB.RemoveDefaults(sectionDB, sectionDefaults)
 			end
@@ -1239,7 +1259,7 @@ function DBObjectMixin:SetProfile(name)
 	
 	-- Save or cleanup new profileKey mapping.
 	local defaultProfile = self:GetDefaultProfileName()
-	self.sv.profileKeys[charKey] =  name ~= defaultProfile  and  name  or  nil
+	self.sv.profileKeys[sectionKeys.char] =  name ~= defaultProfile  and  name  or  nil
 
 	-- populate to child namespaces
 	for _,db in pairsOrNil(self.children) do
@@ -1498,19 +1518,20 @@ end
 --
 function AceDB:New(savedVariable, defaults, defaultProfileToken)
 	local sv, name = savedVariable
-	if type(savedVariable) == "string" then
-		sv = _G[savedVariable] or {}
-		_G[savedVariable], name = sv, savedVariable
-	else
+	if isstring(savedVariable) then
+		sv = GL[savedVariable] or {}
+		GL[savedVariable], name = sv, savedVariable
+	elseif istable(savedVariable) then
 		name = tostring(sv)
 		name = sv:match("table: (.*)") or name
+	else
+		error("Usage: AceDB:New(savedVariable, defaults, defaultProfileToken): 'savedVariable' - expected string or table, got "..type(savedVariable), 2)
 	end
 
-	asserttype(savedVariable, 'table', "Usage: AceDB:New(savedVariable, defaults, defaultProfileToken): 'savedVariable' -", 2)
-	if defaults then
-		asserttype(defaults, 'table', "Usage: AceDB:New(savedVariable, defaults, defaultProfileToken): 'defaults' -", 2)
+	asserttypeOrNil(defaults, 'table', "Usage: AceDB:New(savedVariable, defaults, defaultProfileToken): 'defaults' -", 2)
+	if not istype3(defaultProfileToken, 'string', 'boolean', 'nil') then
+		error("Usage: AceDB:New(savedVariable, defaults, defaultProfileToken): 'defaultProfileToken' - string or boolean expected, got "..type(defaultProfileToken), 2)
 	end
-	assert(istype3(defaultProfileToken, 'string', 'boolean', 'nil'), "Usage: AceDB:New(savedVariable, defaults, defaultProfileToken): 'defaultProfileToken' - string or boolean expected.", 2)
 
 	return initdb(sv, defaults, defaultProfileToken, name, nil)
 end
