@@ -1132,8 +1132,8 @@ local function logoutHandler(frame, event)
 			end
 
 			-- Remove profileKeys if empty.
-			if  nil==next(sv.profiles)      then  sv.profiles = nil      end
-			if  nil==next(sv.profileKeys)   then  sv.profileKeys  = nil  end
+			if  sv.profiles  and  nil==next(sv.profiles)      then  sv.profiles = nil      end
+			if  sv.profileKeys  and  nil==next(sv.profileKeys)   then  sv.profileKeys = nil  end
 		end
 	end
 end

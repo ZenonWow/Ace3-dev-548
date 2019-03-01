@@ -783,7 +783,7 @@ local function OnEvent(frame, event, addonName)
 					_G.geterrorhandler()( event.."('"..addonName.."'):  event fired for possibly different addon. Initializing addon.addonFolder = '"..addon.addonFolder.."'" )
 				end
 				if  _G.DEVMODE  and  not addon.moduleName  and  addon.addonFolder  and  addon.addonFolder ~= addon.name  then
-					print("AceAddon:NewAddon(name = '"..addon.name.."'):  name different from addon.addonFolder = '"..addon.addonFolder.."'. Use addon:SetRealAddonName(ADDON_NAME) or addon:SetRealAddonName(...) to explicitly set the real addon name.")
+					print("AceAddon:NewAddon(name = '"..addon.name.."'):  name different from addon.addonFolder = '"..addon.addonFolder.."'. Use   if addon.SetRealAddonName then  addon:SetRealAddonName(...)  end   (or ADDON_NAME instead of ...) to explicitly set the real addon name.")
 				end
 
 				-- Historically the parameter of ADDON_LOADED event is saved to baseName. Have seen only one addon using it: Prat-3.0.
