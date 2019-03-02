@@ -231,8 +231,8 @@ end
 
 function AceAddon.DetermineAddonFolder(stackFramesUp, addon)
   -- 0:debugstack, 1:DetermineAddonFolder, 2:_InitObject, 3:NewAddon/NewModule, 4:<caller>
-	local stackDepth = (stackFramesUp or 0) + 2
-	local callerStack = _G.debugstack(stackDepth, 3, 0)  -- read 3 frames to allow for tailcails (no filepath in those)
+	local callDepth = (stackFramesUp or 0) + 2
+	local callerStack = _G.debugstack(callDepth, 3, 0)  -- read 3 frames to allow for tailcails (no filepath in those)
 	-- Parse the addon's folder name in  Interface\AddOns\  folder.
 	local addonFolder = callerStack and callerStack:match([[AddOns\(.-)\]])
 	if not addon then  return addonFolder  end    -- External call, no addon object, just return addonFolder.
@@ -241,7 +241,7 @@ function AceAddon.DetermineAddonFolder(stackFramesUp, addon)
 	if not _G.DEVMODE then    -- Only report in DEVMODE.
 	elseif not addonFolder then
 		local AceAddonFunc =  (addon.moduleName and "NewModule" or "NewAddon")
-		_G.geterrorhandler()("    AceAddon:"..AceAddonFunc.."(name = '"..addon.name.."'):  can't determine addonFolder from debugstack("..stackDepth..", 3, 0):\n"..tostring(callerStack))
+		_G.geterrorhandler()("    AceAddon:"..AceAddonFunc.."(name = '"..addon.name.."'):  can't determine addonFolder from debugstack("..callDepth..", 3, 0):\n"..tostring(callerStack))
 	end
 	return addonFolder
 end
@@ -314,18 +314,18 @@ end
 -- @param addon addon object to embed the library in
 -- @param libname name of the library to embed
 -- @param silent marks an embed to fail silently if the library doesn't exist (optional)
--- @param stackDepth will push the error messages back to said offset, defaults to 0 (optional)
-function AceAddon:EmbedLibrary(moduleObj, libname, silent, stackDepth)
+-- @param callDepth will push the error messages back to said offset, defaults to 0 (optional)
+function AceAddon:EmbedLibrary(moduleObj, libname, silent, callDepth)
 	local lib = LibStub:GetLibrary(libname, true)
 	if not lib and not silent then
 		-- 0:error(), 1:EmbedLibrary, 2:EmbedLibraries/caller, 3:NewAddon/NewModule, 4:caller
-		error( format("Usage: EmbedLibrary(moduleObj, libname, silent, offset): `libname` - Cannot find a library instance of %q.", tostring(libname)), (stackDepth or 0)+2 )
+		error( format("Usage: EmbedLibrary(moduleObj, libname, silent, offset): `libname` - Cannot find a library instance of %q.", tostring(libname)), (callDepth or 0)+2 )
 	elseif lib and type(lib.Embed) == "function" then
 		lib:Embed(moduleObj)
 		tinsert(self.embeds[moduleObj], libname)
 		return true
 	elseif lib then
-		error( format("Usage: EmbedLibrary(moduleObj, libname, silent, offset): `libname` - Library '%s' is not Embed capable", libname), (stackDepth or 0)+2 )
+		error( format("Usage: EmbedLibrary(moduleObj, libname, silent, offset): `libname` - Library '%s' is not Embed capable", libname), (callDepth or 0)+2 )
 	end
 end
 

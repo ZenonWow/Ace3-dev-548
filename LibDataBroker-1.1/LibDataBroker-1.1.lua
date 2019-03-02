@@ -37,12 +37,12 @@ LibShared.softassertf = LibShared.softassertf  or  function(ok, messageFormat, .
 end
 
 --- LibShared. asserttype(value, typename, [messagePrefix]):  Raises error (stops execution) if value's type is not the expected `typename`.
-LibShared.asserttype = LibShared.asserttype  or  function(value, typename, messagePrefix)
-	if type(value)~=typename then  error( (messagePrefix or "")..typename.." expected, got "..type(value) )  end
+LibShared.asserttype = LibShared.asserttype  or  function(value, typename, messagePrefix, callDepth)
+	if type(value)~=typename then  error( (messagePrefix or "")..typename.." expected, got "..type(value), (callDepth or 0)+2 )  end
 end
 
 --- LibShared. assertf(condition, messageFormat, formatParameter...):  Raises error (stops execution) if condition fails. Formatted error message.
-LibShared.assertf = LibShared.assertf  or  function(ok, messageFormat, ...)  if not ok then  error( format(messageFormat, ...) )  end  end
+LibShared.assertf = LibShared.assertf  or  function(ok, messageFormat, ...)  if not ok then  error( format(messageFormat, ...), 2 )  end  end
 
 -------------------------------------------------
 --- LibShared. initmetatable(obj):  Make sure obj has a metatable and return it.

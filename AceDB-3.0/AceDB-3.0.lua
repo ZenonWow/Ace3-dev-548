@@ -122,14 +122,14 @@ end
 
 -------------------------------------------------
 --- LibShared. asserttype(value, typename, [messagePrefix]):  Raises error (stops execution) if value's type is not the expected `typename`.
-LibShared.asserttype = LibShared.asserttype  or  function(value, typename, messagePrefix, calldepth)
-	if type(value)~=typename then  error( (messagePrefix or "")..typename.." expected, got "..type(value), (calldepth or 1)+1 )  end
+LibShared.asserttype = LibShared.asserttype  or  function(value, typename, messagePrefix, callDepth)
+	if type(value)~=typename then  error( (messagePrefix or "")..typename.." expected, got "..type(value), (callDepth or 0)+2 )  end
 end
 
 -----------------------------
 --- LibShared. asserttypeOrNil(value, typename, [messagePrefix]):  Raises error (stops execution) if value's type is not the expected `typename` and value is not nil.
-LibShared.asserttypeOrNil = LibShared.asserttypeOrNil  or  function(value, typename, messagePrefix, calldepth)
-	if nil~=value and type(value)~=typename then  error( (messagePrefix or "")..typename.." expected, got "..type(value), (calldepth or 1)+1 )  end
+LibShared.asserttypeOrNil = LibShared.asserttypeOrNil  or  function(value, typename, messagePrefix, callDepth)
+	if nil~=value and type(value)~=typename then  error( (messagePrefix or "")..typename.." expected, got "..type(value), (callDepth or 0)+2 )  end
 end
 
 -- Type-check shorthands.  @return value  if its type is as expected,  false otherwise.
@@ -1153,7 +1153,7 @@ AceDB.frame:SetScript("OnEvent", logoutHandler)
 -- @param defaults A table of defaults for this database
 function DBObjectMixin:RegisterDefaults(defaults)
 	if defaults then
-		asserttype(defaults, 'table', "Usage: AceDBObject:RegisterDefaults(defaults): 'defaults' -", 2)
+		asserttype(defaults, 'table', "Usage: AceDBObject:RegisterDefaults(defaults): 'defaults' -", 1)
 	end
 
 	validateDefaults(defaults, sectionKeys)
@@ -1230,7 +1230,7 @@ end
 -- supplied named profile
 -- @param name The name of the profile to set as the current profile
 function DBObjectMixin:SetProfile(name)
-	asserttype(name, 'string', "Usage: AceDBObject:SetProfile(name): 'name' -", 2)
+	asserttype(name, 'string', "Usage: AceDBObject:SetProfile(name): 'name' -", 1)
 
 	-- changing to the same profile, dont do anything
 	if name == self.keys.profile then return end
@@ -1287,8 +1287,8 @@ end
 -- @param newname  The next name of the profile.
 -- @param silent If true, do not raise an error when the profile does not exist
 function DBObjectMixin:RenameProfile(oldname, newname, silent)
-	asserttype(oldname, 'string', "Usage: AceDBObject:DeleteProfile(oldname): 'oldname' -", 2)
-	asserttype(newname, 'string', "Usage: AceDBObject:DeleteProfile(newname): 'newname' -", 2)
+	asserttype(oldname, 'string', "Usage: AceDBObject:DeleteProfile(oldname): 'oldname' -", 1)
+	asserttype(newname, 'string', "Usage: AceDBObject:DeleteProfile(newname): 'newname' -", 1)
 
 	-- populate to child namespaces
 	for namespace,namespaceDB in pairsOrNil(self.children) do
@@ -1323,7 +1323,7 @@ end
 -- @param name The name of the profile to be deleted
 -- @param silent If true, do not raise an error when the profile does not exist
 function DBObjectMixin:DeleteProfile(name, silent)
-	asserttype(name, 'string', "Usage: AceDBObject:DeleteProfile(name): 'name' -", 2)
+	asserttype(name, 'string', "Usage: AceDBObject:DeleteProfile(name): 'name' -", 1)
 
 	if self.keys.profile == name then
 		-- error("Cannot delete the active profile in an AceDBObject.", 2)
@@ -1331,7 +1331,7 @@ function DBObjectMixin:DeleteProfile(name, silent)
 		local defaultProfile = self:GetDefaultProfileName()
 		self:SetProfile(defaultProfile)
 	else
-		assert(silent or rawget(self.sv.profiles, name), "Cannot delete non-existent profile.", 2)
+		assert(silent or rawget(self.sv.profiles, name), "Cannot delete non-existent profile.", 1)
 	end
 
 
@@ -1363,9 +1363,9 @@ end
 -- @param name The name of the profile to be copied into the current profile
 -- @param silent If true, do not raise an error when the profile does not exist
 function DBObjectMixin:CopyProfile(name, silent)
-	asserttype(name, 'string', "Usage: AceDBObject:CopyProfile(name): 'name' -", 2)
-	assert(name ~= self.keys.profile, "Cannot have the same source and destination profiles.", 2)
-	assert(silent or rawget(self.sv.profiles, name), "Cannot copy non-existent profile.", 2)
+	asserttype(name, 'string', "Usage: AceDBObject:CopyProfile(name): 'name' -", 1)
+	assert(name ~= self.keys.profile, "Cannot have the same source and destination profiles.", 1)
+	assert(silent or rawget(self.sv.profiles, name), "Cannot copy non-existent profile.", 1)
 
 	-- Reset the profile before copying
 	DBObjectMixin.ResetProfile(self, nil, true)
@@ -1422,7 +1422,7 @@ end
 -- @param defaultProfileToken  The profile name to use as the default
 function DBObjectMixin:ResetDB(defaultProfileToken)
 	if defaultProfileToken then
-		asserttype(defaultProfileToken, 'string', "Usage: AceDBObject:ResetDB(defaultProfileToken): 'defaultProfileToken' -", 2)
+		asserttype(defaultProfileToken, 'string', "Usage: AceDBObject:ResetDB(defaultProfileToken): 'defaultProfileToken' -", 1)
 	end
 
 	local sv = wipe(self.sv)
@@ -1454,9 +1454,9 @@ end
 -- @param name The name of the new namespace
 -- @param defaults A table of values to use as defaults
 function DBObjectMixin:RegisterNamespace(name, defaults)
-	asserttype(name, 'string', "Usage: AceDBObject:RegisterNamespace(name, defaults): 'name' -", 2)
+	asserttype(name, 'string', "Usage: AceDBObject:RegisterNamespace(name, defaults): 'name' -", 1)
 	if defaults then
-		asserttype(defaults, 'table', "Usage: AceDBObject:RegisterNamespace(name, defaults): 'defaults' -", 2)
+		asserttype(defaults, 'table', "Usage: AceDBObject:RegisterNamespace(name, defaults): 'defaults' -", 1)
 	end
 	if self.children and self.children[name] then
 		error ("Usage: AceDBObject:RegisterNamespace(name, defaults): 'name' - a namespace with that name already exists.", 2)
@@ -1483,8 +1483,8 @@ end
 -- local namespace = self.db:GetNamespace('namespace')
 -- @return the namespace object if found
 function DBObjectMixin:GetNamespace(name, silent)
-	asserttype(name, 'string', "Usage: AceDBObject:GetNamespace(name): 'name' - string expected.", 2)
-	assert(silent or (self.children and self.children[name]), "Usage: AceDBObject:GetNamespace(name): 'name' - namespace does not exist.", 2)
+	asserttype(name, 'string', "Usage: AceDBObject:GetNamespace(name): 'name' - string expected.", 1)
+	assert(silent or (self.children and self.children[name]), "Usage: AceDBObject:GetNamespace(name): 'name' - namespace does not exist.", 1)
 	if not self.children then self.children = {} end
 	return self.children[name]
 end
@@ -1528,7 +1528,7 @@ function AceDB:New(savedVariable, defaults, defaultProfileToken)
 		error("Usage: AceDB:New(savedVariable, defaults, defaultProfileToken): 'savedVariable' - expected string or table, got "..type(savedVariable), 2)
 	end
 
-	asserttypeOrNil(defaults, 'table', "Usage: AceDB:New(savedVariable, defaults, defaultProfileToken): 'defaults' -", 2)
+	asserttypeOrNil(defaults, 'table', "Usage: AceDB:New(savedVariable, defaults, defaultProfileToken): 'defaults' -", 1)
 	if not istype3(defaultProfileToken, 'string', 'boolean', 'nil') then
 		error("Usage: AceDB:New(savedVariable, defaults, defaultProfileToken): 'defaultProfileToken' - string or boolean expected, got "..type(defaultProfileToken), 2)
 	end
