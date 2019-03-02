@@ -7,9 +7,6 @@
 <Script  file="LibStub.NewLibrary.lua" />
 <Script  file="LibStub.GetLibrary.lua" />
 
-<!-- # Register a non-LibStub library in a backwards-compatible manner: -->
-<Script  file="LibStub.ImportLibrary.lua" />
-
 <!-- # Event trigger before a library update. -->
 <Script  file="LibStub.BeforeNewLibrary.lua" />
 <!-- # Event trigger after a library update. -->
