@@ -634,8 +634,9 @@ function AceAddon:InitializeAddon(moduleObj)
 	LibShared.softassert(self.statuses[fullName] == nil, "AceAddon:InitializeAddon('"..fullName.."') called repeatedly.")
 	if  self.statuses[fullName] ~= nil  then  return  end
 
+  -- Initialized, but not enabled status. Set before OnInitialize() so calling :Enable() will actually enable the module.
+	self.statuses[fullName] = false
 	safecall(moduleObj.OnInitialize, moduleObj)
-	self.statuses[fullName] = false  -- Initialized, but not enabled yet.
 	
 	local embeds = self.embeds[moduleObj]
 	for i = 1, #embeds do
