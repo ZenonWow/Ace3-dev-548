@@ -1490,13 +1490,14 @@ local function TreeOnButtonEnter(widget, event, uniquevalue, button)
 		feedpath[i] = path[i]
 	end
 
-	BuildPath(feedpath, (PATH_SEP):split(uniquevalue))
+	BuildPath(feedpath, PATH_SEP:split(uniquevalue))
 	local group = options
 	for i = 1, #feedpath do
 		if not group then return end
 		group = GetSubOption(group, feedpath[i])
 	end
 
+	if not group.name then  print("Crash:", "uniquevalue:", uniquevalue, PATH_SEP, "feedpath:", strjoin("/", feedpath) )  end
 	local name = GetOptionsMemberValue("name", group, options, feedpath, appName)
 	local desc = GetOptionsMemberValue("desc", group, options, feedpath, appName)
 	

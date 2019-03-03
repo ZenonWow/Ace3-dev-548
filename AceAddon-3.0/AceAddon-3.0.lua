@@ -859,7 +859,7 @@ local function OnUpdate(frame, elapsed)
 	if  not frame.batchStart  then
 		frame.batchStart = frameStart
 		frame.batchFrame = frame.frameCount
-		print("AceAddon started enabling addons at "..time("%H:%M:%S") )
+		print("AceAddon started enabling addons at "..date("%H:%M:%S") )
 	end
 
 	local queue = AceAddon.enablequeue
