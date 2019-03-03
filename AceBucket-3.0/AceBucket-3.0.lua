@@ -99,7 +99,7 @@ local function FireBucket(bucket)
 	local received = bucket.received
 	
 	-- we dont want to fire empty buckets
-	if next(received) then
+	if next(received) ~= nil then
 		--[[
 		local callback = bucket.callback
 		if type(callback) == 'function'
@@ -161,7 +161,7 @@ if  not FireBucket  then
 		local received = bucket.received
 		
 		-- we dont want to fire empty buckets
-		if next(received) then
+		if next(received) ~= nil then
 			bucket.lastTime = GetTime()
 			xpcall(bucket.xpcallClosure, errorhandler)
 			-- xpcall(bucket.xpcallClosure, _G.geterrorhandler())
