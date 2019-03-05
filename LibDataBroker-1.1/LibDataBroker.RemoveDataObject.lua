@@ -1,13 +1,13 @@
-local _G, LibStub, LIB_NAME, LIB_REVISION  =  _G, LibStub, "LibDataBroker.RemoveDataObject", 1
+local G, LibStub, LIB_NAME, LIB_REVISION  =  _G, LibStub, "LibDataBroker.RemoveDataObject", 1
 assert(LibStub, 'Include "LibStub.lua" before LibDataBroker.RemoveDataObject.')
 if not LibStub:NewLibrary(LIB_NAME, LIB_REVISION) then  return  end
 local LibDataBroker = LibStub("LibDataBroker-1.1")
 
 
-local LibShared = _G.LibShared or {}  ;  _G.LibShared = LibShared
+local LibShared = G.LibShared or {}  ;  G.LibShared = LibShared
 LibShared.istable   = LibShared.istable   or function(value)  return  type(value)=='table'    and value  end
 --- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
-LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or G.geterrorhandler()(message)  end
 
 
 -----------------------------------------------------

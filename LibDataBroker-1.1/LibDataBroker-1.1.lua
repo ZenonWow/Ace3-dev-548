@@ -15,7 +15,7 @@ use_domt = LibDataBroker.domt
 
 
 -- Lua APIs
-local _G, pairs, ipairs, wipe = _G, pairs, ipairs, wipe
+local G, pairs, ipairs, wipe = _G, pairs, ipairs, wipe
 local assert, type, getmetatable, setmetatable = assert, type, getmetatable, setmetatable
 local pcall, print, tostring = pcall, print, tostring
 local format = string.format
@@ -26,14 +26,14 @@ local format = string.format
 -------------------------
 
 -- Export to LibShared:  softassert,softassertf,assertf,asserttype,initmetatable
-local LibShared = _G.LibShared or {}  ;  _G.LibShared = LibShared
+local LibShared = G.LibShared or {}  ;  G.LibShared = LibShared
 
 --- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
-LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or G.geterrorhandler()(message)  end
 
 --- LibShared. softassertf( condition, messageFormat, formatParameter...):  Report error, then continue execution, _unlike_ assert(). Formatted error message.
 LibShared.softassertf = LibShared.softassertf  or  function(ok, messageFormat, ...)
-	if ok then  return ok,nil  end  ;  local message = format(messageFormat, ...)  ;  _G.geterrorhandler()(message)  ;  return ok,message
+	if ok then  return ok,nil  end  ;  local message = format(messageFormat, ...)  ;  G.geterrorhandler()(message)  ;  return ok,message
 end
 
 --- LibShared. asserttype(value, typename, [messagePrefix]):  Raises error (stops execution) if value's type is not the expected `typename`.
@@ -78,7 +78,7 @@ local softassert,softassertf,asserttype,assertf,initmetatable = LibShared.softas
 -- local newproxy = newproxy  or function(withMeta)  return  withMeta  and  setmetatable({},{})  or  function() end  end
 -- @param withMeta is always true in this library.
 --local
-newproxy = _G.newproxy  or  function()  return setmetatable({}, {})  end
+newproxy = G.newproxy  or  function()  return setmetatable({}, {})  end
 
 
 
@@ -254,7 +254,7 @@ local LDB = LibDataBroker
 -- Dataobject metatables are protected from external access. `getmetatable(dataobj)()` returns an explanation:
 LDB.MetaTableNote = "This is a metatable for LDB dataobjects. Not to be modified: it is necessary to update listeners (broker displays) when dataobjects change."
 -- Listener registry.
-LDB.callbacks = LDB.callbacks or _G.LibStub("CallbackHandler-1.0"):New(LDB)
+LDB.callbacks = LDB.callbacks or G.LibStub("CallbackHandler-1.0"):New(LDB)
 -- Dataobject registry.
 LDB.proxystorage     = LDB.proxystorage     or {}
 LDB.attributestorage = LDB.attributestorage or {}

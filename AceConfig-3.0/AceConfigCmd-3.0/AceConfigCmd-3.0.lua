@@ -15,7 +15,7 @@ REQUIRES: AceConsole-3.0 for command registration (loaded on demand)
 -- TODO: plugin args
 
 
-local MAJOR, MINOR = "AceConfigCmd-3.0", 13
+local _G, MAJOR, MINOR = _G, "AceConfigCmd-3.0", 13
 local AceConfigCmd = LibStub:NewLibrary(MAJOR, MINOR)
 
 if not AceConfigCmd then return end
@@ -33,9 +33,6 @@ local format, tonumber, tostring = string.format, tonumber, tostring
 local tsort, tinsert = table.sort, table.insert
 local select, pairs, next, type = select, pairs, next, type
 local error, assert = error, assert
-
--- WoW APIs
-local _G = _G
 
 -- Global vars/functions that we don't upvalue since they might get hooked, or upgraded
 -- List them here for Mikk's FindGlobals script

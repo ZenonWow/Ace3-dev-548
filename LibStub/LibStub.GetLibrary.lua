@@ -3,8 +3,8 @@
 -- Used from _G:  error,type,tostring,getmetatable,setmetatable
 -- Upvalued: <none>
 
-local GL, LIBSTUB_NAME, LIBSTUB_REVISION = _G, LIBSTUB_NAME or 'LibStub', 3
-local LibStub = assert(GL[LIBSTUB_NAME], 'Include "LibStub.lua" before LibStub.GetLibrary.')
+local G, LIBSTUB_NAME, LIBSTUB_REVISION = _G, LIBSTUB_NAME or 'LibStub', 3
+local LibStub = assert(G[LIBSTUB_NAME], 'Include "LibStub.lua" before LibStub.GetLibrary.')
 
 
 -- Check if current version of LibStub.GetLibrary is obsolete.
@@ -25,8 +25,8 @@ if (LibStub.minors[LibStub.GetLibrary] or LibStub.minor or 0) < LIBSTUB_REVISION
 		local revision = self.minors[name]
 		if revision then  return self.libs[name], revision  end
 
-		client = GL.tostring( GL.type(client)=='table' and client.name  or  client )
-		GL.error(client..' requires "'..GL.tostring(name)..'" library loaded before.', 2)
+		client = G.tostring( G.type(client)=='table' and client.name  or  client )
+		G.error(client..' requires "'..G.tostring(name)..'" library loaded before.', 2)
 	end
 
 
@@ -42,16 +42,16 @@ if (LibStub.minors[LibStub.GetLibrary] or LibStub.minor or 0) < LIBSTUB_REVISION
 		local revision = self.minors[name]
 		if revision then  return self.libs[name], revision  end
 		if optional then  return nil  end
-		GL.error('LibStub:GetLibrary("'..GL.tostring(name)..'"):  library is not loaded at this point.', 2)
+		G.error('LibStub:GetLibrary("'..G.tostring(name)..'"):  library is not loaded at this point.', 2)
 	end
 
 
 	------------------------------
 	--- LibStub(name, [optional]): Get a library from the registry.
-	-- local metatable = GL.getmetatable(LibStub)
+	-- local metatable = G.getmetatable(LibStub)
 	-- if not metatable then  metatable = {}  ;  setmetatable(LibStub, metatable)  end
 	local metatable = LibStub    -- Is its own metatable.
-	if GL.getmetatable(LibStub)~=metatable then  GL.setmetatable(LibStub, metatable)  end
+	if G.getmetatable(LibStub)~=metatable then  G.setmetatable(LibStub, metatable)  end
 	metatable.__call = LibStub.GetLibrary
 	-- Protect from setmetatable(), while getmetatable() works as usual.
 	metatable.__metatable = metatable
@@ -61,7 +61,7 @@ if (LibStub.minors[LibStub.GetLibrary] or LibStub.minor or 0) < LIBSTUB_REVISION
 	--- for  name,lib  in LibStub:IterateLibraries() do
 	-- Iterate over the currently registered libraries.
 	-- @return an iterator used with `for in`.
-	function LibStub:IterateLibraries()  return GL.pairs(self.libs)  end
+	function LibStub:IterateLibraries()  return G.pairs(self.libs)  end
 
 
 

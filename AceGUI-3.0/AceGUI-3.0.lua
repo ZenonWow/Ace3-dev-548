@@ -25,7 +25,7 @@
 -- @class file
 -- @name AceGUI-3.0
 -- @release $Id: AceGUI-3.0.lua 1102 2013-10-25 14:15:23Z nevcairiel $
-local MAJOR, MINOR = "AceGUI-3.0", 34
+local G, MAJOR, MINOR = _G, "AceGUI-3.0", 34
 local AceGUI, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not AceGUI then return end -- No upgrade needed
 
@@ -47,16 +47,16 @@ local UIParent = UIParent
 
 
 -- Export to LibShared:  errorhandler, softassert, safecall/safecallDispatch
-local LibShared = _G.LibShared or {}  ;  _G.LibShared = LibShared
+local LibShared = G.LibShared or {}  ;  G.LibShared = LibShared
 
--- Allow hooking _G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
+-- Allow hooking G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
 -- Call through errorhandler() local, thus the errorhandler() function name is printed in stacktrace, not just a line number.
 -- Also avoid tailcall with select(1,...). A tailcall would show LibShared.errorhandler() function as "?" in stacktrace, making it harder to identify.
-LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  local errorhandler = _G.geterrorhandler() ; return select( 1, errorhandler(errorMessage) )  end
+LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  local errorhandler = G.geterrorhandler() ; return select( 1, errorhandler(errorMessage) )  end
 local errorhandler = LibShared.errorhandler
 
 
-if  select(4, _G.GetBuildInfo()) >= 80000  then
+if  select(4, G.GetBuildInfo()) >= 80000  then
 
 	----------------------------------------
 	--- Battle For Azeroth Addon Changes
@@ -97,15 +97,15 @@ elseif not LibShared.safecallDispatch then
 	setmetatable(SafecallDispatchers, { __index = SafecallDispatchers.CreateDispatcher })
 
 	SafecallDispatchers[0] = function (unsafeFunc)
-		-- Pass a delegating errorhandler to avoid _G.geterrorhandler() function call before any error actually happens.
+		-- Pass a delegating errorhandler to avoid G.geterrorhandler() function call before any error actually happens.
 		return xpcall(unsafeFunc, errorhandler)
 		-- Or pass the registered errorhandler directly to avoid inserting an extra callstack frame.
 		-- The errorhandler is expected to be the same at both times: callbacks usually don't change it.
-		--return xpcall(unsafeFunc, _G.geterrorhandler())
+		--return xpcall(unsafeFunc, G.geterrorhandler())
 	end
 
 	--- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
-	LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+	LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or G.geterrorhandler()(message)  end
 
 	function LibShared.safecallDispatch(unsafeFunc, ...)
 		-- we check to see if unsafeFunc is actually a function here and don't error when it isn't

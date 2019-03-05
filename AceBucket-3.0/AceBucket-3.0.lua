@@ -42,13 +42,13 @@
 -- 3.1 replaced safecall implementation with xpcall(bucket.xpcallClosure, errorhandler).
 
 local MAJOR, MINOR = "AceBucket-3.0", 3.1
-local _G, AceBucket, oldminor = _G, LibStub:NewLibrary(MAJOR, MINOR)
+local G, AceBucket, oldminor = _G, LibStub:NewLibrary(MAJOR, MINOR)
 
 if not AceBucket then return end -- No Upgrade needed
 
 
 -- Export to LibShared:  istype2, isstring, isfunc, istable, errorhandler
-local LibShared = _G.LibShared or {}  ;  _G.LibShared = LibShared
+local LibShared = G.LibShared or {}  ;  G.LibShared = LibShared
 
 LibShared.isstring   = LibShared.isstring   or function(value)  return  type(value)=='string'   and value  end
 LibShared.istable    = LibShared.istable    or function(value)  return  type(value)=='table'    and value  end
@@ -60,10 +60,10 @@ LibShared.istype2 = LibShared.istype2 or  function(value, t1, t2)
 end
 
 
--- Allow hooking _G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
+-- Allow hooking G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
 -- Call through errorhandler() local, thus the errorhandler() function name is printed in stacktrace, not just a line number.
 -- Also avoid tailcall with select(1,...). A tailcall would show LibShared.errorhandler() function as "?" in stacktrace, making it harder to identify.
-LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  local errorhandler = _G.geterrorhandler() ; return select( 1, errorhandler(errorMessage) )  end
+LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  local errorhandler = G.geterrorhandler() ; return select( 1, errorhandler(errorMessage) )  end
 
 local errorhandler = LibShared.errorhandler
 local istype2, isstring, isfunc, istable = LibShared.istype2, LibShared.isstring, LibShared.isfunc, LibShared.istable
@@ -110,11 +110,11 @@ local function FireBucket(bucket)
 		end
 		--]]
 
-		-- Pass a delegating errorhandler to avoid _G.geterrorhandler() function call before any error actually happens.
+		-- Pass a delegating errorhandler to avoid G.geterrorhandler() function call before any error actually happens.
 		xpcall(bucket.xpcallClosure, errorhandler)
 		-- Or pass the registered errorhandler directly to avoid inserting an extra callstack frame.
 		-- The errorhandler is expected to be the same at both times: callbacks usually don't change it.
-		--xpcall(bucket.xpcallClosure, _G.geterrorhandler())
+		--xpcall(bucket.xpcallClosure, G.geterrorhandler())
 
 		wipe(received)
 
@@ -166,7 +166,7 @@ if  not FireBucket  then
 		if next(received) ~= nil then
 			bucket.lastTime = GetTime()
 			xpcall(bucket.xpcallClosure, errorhandler)
-			-- xpcall(bucket.xpcallClosure, _G.geterrorhandler())
+			-- xpcall(bucket.xpcallClosure, G.geterrorhandler())
 			wipe(received)
 		end
 	end

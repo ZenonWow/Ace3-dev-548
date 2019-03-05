@@ -5,8 +5,7 @@
 -- @patch $Id: AceAddon-3.0.lua 1084.1 2019-01 Mongusius, MINOR: 59 -> 59.1
 -- 59.1 moved safecall implementation to CallbackHandler.
 
-local LibStub = LibStub
-local MAJOR, MINOR = "AceConfigDialog-3.0", 59.1
+local G, MAJOR, MINOR = _G, "AceConfigDialog-3.0", 59.1
 local AceConfigDialog, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not AceConfigDialog then return end
 
@@ -34,20 +33,20 @@ local gui = LibStub("AceGUI-3.0", nil, MAJOR)
 local reg = LibStub("AceConfigRegistry-3.0", nil, MAJOR)
 
 -- Export to LibShared:  errorhandler, softassert, safecall/safecallDispatch
-local LibShared = _G.LibShared or {}  ;  _G.LibShared = LibShared
+local LibShared = G.LibShared or {}  ;  G.LibShared = LibShared
 
--- Allow hooking _G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
+-- Allow hooking G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
 -- Call through errorhandler() local, thus the errorhandler() function name is printed in stacktrace, not just a line number.
 -- Also avoid tailcall with select(1,...). A tailcall would show LibShared.errorhandler() function as "?" in stacktrace, making it harder to identify.
-LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  local errorhandler = _G.geterrorhandler() ; return select( 1, errorhandler(errorMessage) )  end
+LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  local errorhandler = G.geterrorhandler() ; return select( 1, errorhandler(errorMessage) )  end
 local errorhandler = LibShared.errorhandler
 
 --- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
-LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or G.geterrorhandler()(message)  end
 local softassert = LibShared.softassert
 
 
-if  select(4, _G.GetBuildInfo()) >= 80000  then
+if  select(4, G.GetBuildInfo()) >= 80000  then
 
 	----------------------------------------
 	--- Battle For Azeroth Addon Changes
@@ -88,11 +87,11 @@ elseif not LibShared.safecallDispatch then
 	setmetatable(SafecallDispatchers, { __index = SafecallDispatchers.CreateDispatcher })
 
 	SafecallDispatchers[0] = function (unsafeFunc)
-		-- Pass a delegating errorhandler to avoid _G.geterrorhandler() function call before any error actually happens.
+		-- Pass a delegating errorhandler to avoid G.geterrorhandler() function call before any error actually happens.
 		return xpcall(unsafeFunc, errorhandler)
 		-- Or pass the registered errorhandler directly to avoid inserting an extra callstack frame.
 		-- The errorhandler is expected to be the same at both times: callbacks usually don't change it.
-		--return xpcall(unsafeFunc, _G.geterrorhandler())
+		--return xpcall(unsafeFunc, G.geterrorhandler())
 	end
 
 	function LibShared.safecallDispatch(unsafeFunc, ...)

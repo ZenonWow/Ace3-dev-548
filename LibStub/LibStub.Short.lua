@@ -12,8 +12,8 @@
 -- Used from _G:  pairs, next, getmetatable, setmetatable, geterrorhandler
 -- Upvalued Lua globals:  type,getmetatable,setmetatable,rawset
 
-local GL, LIBSTUB_NAME, LIBSTUB_REVISION = _G, LIBSTUB_NAME or 'LibStub', 3
-local LibStub = assert(GL[LIBSTUB_NAME], 'Include "LibStub.lua" before LibStub.AfterNewLibrary.')
+local G, LIBSTUB_NAME, LIBSTUB_REVISION = _G, LIBSTUB_NAME or 'LibStub', 3
+local LibStub = assert(G[LIBSTUB_NAME], 'Include "LibStub.lua" before LibStub.AfterNewLibrary.')
 
 local LIBSTUBS_NAME = LIBSTUBS_NAME or 'LibStubs'
 local Shorty = LibStub:NewLibrary("LibStub.Short", 1)
@@ -26,10 +26,10 @@ if Shorty then
 	-- Exported to LibStub.Short:
 	LibStub.Short = LibStub.Short or Shorty.shortNames
 
-	-- Exported to GL:  LibStubs == LibStub.Short
-	GL[LIBSTUBS_NAME] = GL[LIBSTUBS_NAME] or Shorty.shortNames
-	if GL[LIBSTUBS_NAME] ~= Shorty.shortNames then
-		GL.geterrorhandler()( "LibStub.Short:  _G."..LIBSTUBS_NAME.." is already in use." )
+	-- Exported to G:  LibStubs == LibStub.Short
+	G[LIBSTUBS_NAME] = G[LIBSTUBS_NAME] or Shorty.shortNames
+	if G[LIBSTUBS_NAME] ~= Shorty.shortNames then
+		G.geterrorhandler()( "LibStub.Short:  _G."..LIBSTUBS_NAME.." is already in use." )
 	end
 
 
@@ -38,7 +38,7 @@ if Shorty then
 		name = name:gsub("[%-%.]", "")
 		local conflict = shortNames[short]
 		if conflict == lib then  return  end
-		if GL.DEVMODE and conflict then  GL.LibShared.softassertf(false, 'Warn: LibStub.Short:  There should be no conflicting shortname, and there it is: %q vs %q.', name, tostring(conflict.name))  end
+		if G.DEVMODE and conflict then  G.LibShared.softassertf(false, 'Warn: LibStub.Short:  There should be no conflicting shortname, and there it is: %q vs %q.', name, tostring(conflict.name))  end
 		if  conflict  and  name <= (conflict.name or "")  then  return  end
 		shortNames[short] = lib
 	end
@@ -56,7 +56,7 @@ if Shorty then
 	end
 
 	-- Import the loaded libraries from LibStub.
-	for name,lib in GL.pairs(LibStub.libs) do
+	for name,lib in G.pairs(LibStub.libs) do
 		Shorty:BeforeNewLibrary(lib, name)
 	end
 

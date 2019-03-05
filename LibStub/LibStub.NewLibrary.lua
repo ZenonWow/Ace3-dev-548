@@ -16,8 +16,8 @@
 -- Used from _G:  error,getmetatable,setmetatable
 -- Upvalued:  type,tonumber,tostring,strmatch
 
-local GL, LIBSTUB_NAME, LIBSTUB_REVISION = _G, LIBSTUB_NAME or 'LibStub', 3
-local LibStub = GL[LIBSTUB_NAME] or { minor = 0, libs = {}, stubs = {}, minors = {} }  --, dependents = {} }
+local G, LIBSTUB_NAME, LIBSTUB_REVISION = _G, LIBSTUB_NAME or 'LibStub', 3
+local LibStub = G[LIBSTUB_NAME] or { minor = 0, libs = {}, stubs = {}, minors = {} }  --, dependents = {} }
 
 
 -- Check if current version of LibStub.NewLibrary is obsolete.
@@ -26,7 +26,7 @@ if (LibStub.minors[LibStub.NewLibrary] or LibStub.minor or 0) < LIBSTUB_REVISION
 	-- If both NewLibrary() and GetLibrary() are at this revision then LibStub.minor can be upgraded.
 	if (LibStub.minors[LibStub.GetLibrary] or 0) >= LIBSTUB_REVISION then  LibStub.minor = LIBSTUB_REVISION  end
 
-	GL[LIBSTUB_NAME] = LibStub
+	G[LIBSTUB_NAME] = LibStub
 	LibStub.name  = LIBSTUB_NAME
 	LibStub.stubs = LibStub.stubs or {}
 
@@ -47,12 +47,12 @@ if (LibStub.minors[LibStub.NewLibrary] or LibStub.minor or 0) < LIBSTUB_REVISION
 	--
 	function LibStub:NewLibrary(name, revision, lib)
 		if type(name)~='string' then
-			GL.error( "Usage: LibStub:NewLibrary(name, revision):  `name` - string expected, got "..type(name) , 2 )
+			G.error( "Usage: LibStub:NewLibrary(name, revision):  `name` - string expected, got "..type(name) , 2 )
 		end
 
 		local rev = torevision(revision)
 		if not rev then
-			GL.error( "Usage: LibStub:NewLibrary(name, revision):  `revision` - expected a number or a string containing a number, got '"..tostring(revision).."'." , 2 )
+			G.error( "Usage: LibStub:NewLibrary(name, revision):  `revision` - expected a number or a string containing a number, got '"..tostring(revision).."'." , 2 )
 		end
 
 		local oldrevision = self.minors[name]
@@ -109,9 +109,9 @@ if (LibStub.minors[LibStub.NewLibrary] or LibStub.minor or 0) < LIBSTUB_REVISION
 	-- LibStub.minors[LibStub.BeforeNewLibrary] = LibStub.minors[LibStub.BeforeNewLibrary] or 0
 	
 	-- Weak-keyed hashmap will let the old functions be garbagecollected after they are upgraded by a new revision.
-	local meta = GL.getmetatable(LibStub.minors)
+	local meta = G.getmetatable(LibStub.minors)
 	if meta then  meta.__mode = 'k'
-	else  GL.setmetatable(LibStub.minors, { __mode = 'k' })
+	else  G.setmetatable(LibStub.minors, { __mode = 'k' })
   end
 
 end -- LibStub.NewLibrary

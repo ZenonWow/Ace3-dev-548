@@ -33,13 +33,13 @@
 -- 12.1 moved safecall and AutoTablesMeta implementation to CallbackHandler.
 
 local MAJOR, MINOR = "AceAddon-3.0", 12.1
-local _G, LibStub = _G, LibStub
+local G, LibStub = _G, LibStub
 local AceAddon, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not AceAddon then return end -- No Upgrade needed.
 
 
--- Export to _G:  AceAddon3
-_G.AceAddon3 = AceAddon
+-- Export to G:  AceAddon3
+G.AceAddon3 = AceAddon
 
 -- Lua APIs
 local tinsert, tconcat, tremove = table.insert, table.concat, table.remove
@@ -55,7 +55,7 @@ local xpcall = xpcall
 
 
 -- Export to LibShared:  AutoTablesMeta, errorhandler, softassert, safecall/safecallDispatch
-local LibShared = _G.LibShared or {}  ;  _G.LibShared = LibShared
+local LibShared = G.LibShared or {}  ;  G.LibShared = LibShared
 LibShared.istype2 = LibShared.istype2 or  function(value, t1, t2, t3)
 	local t=type(value)  ;  if t==t1 or t==t2 then return value or true end  ;  return nil
 end
@@ -63,19 +63,19 @@ end
 -- AutoTablesMeta: metatable that automatically creates empty inner tables when keys are first referenced.
 LibShared.AutoTablesMeta = LibShared.AutoTablesMeta or { __index = function(self, key)  if key ~= nil then  local v={} ; self[key]=v ; return v  end  end }
 
--- Allow hooking _G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
+-- Allow hooking G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
 -- Call through errorhandler() local, thus the errorhandler() function name is printed in stacktrace, not just a line number.
 -- Also avoid tailcall with select(1,...). A tailcall would show LibShared.errorhandler() function as "?" in stacktrace, making it harder to identify.
-LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  local errorhandler = _G.geterrorhandler() ; return select( 1, errorhandler(errorMessage) )  end
+LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  local errorhandler = G.geterrorhandler() ; return select( 1, errorhandler(errorMessage) )  end
 
 --- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
-LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or G.geterrorhandler()(message)  end
 
 local istype2,AutoTablesMeta,errorhandler,softassert = LibShared.istype2, LibShared.AutoTablesMeta, LibShared.errorhandler, LibShared.softassert
 
 
 
-if  select(4, _G.GetBuildInfo()) >= 80000  then
+if  select(4, G.GetBuildInfo()) >= 80000  then
 
 	----------------------------------------
 	--- Battle For Azeroth Addon Changes
@@ -116,11 +116,11 @@ elseif not LibShared.safecallDispatch then
 	setmetatable(SafecallDispatchers, { __index = SafecallDispatchers.CreateDispatcher })
 
 	SafecallDispatchers[0] = function (unsafeFunc)
-		-- Pass a delegating errorhandler to avoid _G.geterrorhandler() function call before any error actually happens.
+		-- Pass a delegating errorhandler to avoid G.geterrorhandler() function call before any error actually happens.
 		return xpcall(unsafeFunc, errorhandler)
 		-- Or pass the registered errorhandler directly to avoid inserting an extra callstack frame.
 		-- The errorhandler is expected to be the same at both times: callbacks usually don't change it.
-		--return xpcall(unsafeFunc, _G.geterrorhandler())
+		--return xpcall(unsafeFunc, G.geterrorhandler())
 	end
 
 	function LibShared.safecallDispatch(unsafeFunc, ...)
@@ -319,16 +319,16 @@ end
 function AceAddon.DetermineAddonFolder(stackFramesUp, moduleObj)
   -- 0:debugstack, 1:DetermineAddonFolder, 2:_InitModuleObj, 3:NewAddon/NewModule, 4:<caller>
 	local callDepth = (stackFramesUp or 0) + 2
-	local callerStack = _G.debugstack(callDepth, 3, 0)  -- read 3 frames to allow for tailcails (no filepath in those)
+	local callerStack = G.debugstack(callDepth, 3, 0)  -- read 3 frames to allow for tailcails (no filepath in those)
 	-- Parse the addon's folder name in  Interface\AddOns\  folder.
 	local addonFolder = callerStack and callerStack:match([[Ons\(.-)\]])
 	if not moduleObj then  return addonFolder  end    -- External call, no addon / module object, just return addonFolder.
 
 	moduleObj.addonFolder = addonFolder
-	if not _G.DEVMODE then    -- Only report in DEVMODE.
+	if not G.DEVMODE then    -- Only report in DEVMODE.
 	elseif not addonFolder then
 		local AceAddonFunc =  (moduleObj.moduleName and "NewModule" or "NewAddon")
-		_G.geterrorhandler()("    AceAddon:"..AceAddonFunc.."(name = '"..moduleObj.name.."'):  can't determine addonFolder from debugstack("..callDepth..", 3, 0):\n"..tostring(callerStack))
+		G.geterrorhandler()("    AceAddon:"..AceAddonFunc.."(name = '"..moduleObj.name.."'):  can't determine addonFolder from debugstack("..callDepth..", 3, 0):\n"..tostring(callerStack))
 	end
 	return addonFolder
 end
@@ -362,9 +362,9 @@ end
 -- -- Get the Addon
 -- MyAddon = LibStub("AceAddon-3.0"):GetAddon("MyAddon")
 -- -- Short version:
--- MyAddon = _G.AceAddon3('MyAddon')
+-- MyAddon = G.AceAddon3('MyAddon')
 -- -- Short silent version (returns nil if not found):
--- MyAddon = _G.AceAddon3.MyAddon
+-- MyAddon = G.AceAddon3.MyAddon
 --
 function AceAddon:GetAddon(fullName, silent)
 	if not silent and not self.addons[fullName] then
@@ -375,8 +375,8 @@ end
 
 
 --- Global shorthand to access addons, similar to LibStub's. Examples:
--- _G.AceAddon3('Prat-3.0'), _G.AceAddon3('Dominos'), etc.
--- _G.AceAddon3.Dominos, etc.
+-- G.AceAddon3('Prat-3.0'), G.AceAddon3('Dominos'), etc.
+-- G.AceAddon3.Dominos, etc.
 --
 setmetatable(AceAddon, { __call = AceAddon.GetAddon, __index = AceAddon.addons })
 
@@ -914,7 +914,7 @@ local function OnEvent(frame, event, addonName)
 		AceAddon:DoInitQueue(addonName)
 	end
 	-- if event=='PLAYER_LOGIN' then
-	if _G.IsLoggedIn() then
+	if G.IsLoggedIn() then
 		AceAddon:DoInitQueue()
 		AceAddon:DoEnableQueue()
 	end
@@ -946,9 +946,9 @@ function AceAddon:DoInitQueue(addonName)
 		if  addonName  and  not moduleObj.realAddonName  then
 			-- moduleObj.addonFolder == moduleObj.baseName == addonName expected
 			if  moduleObj.addonFolder  and  moduleObj.addonFolder ~= addonName  then
-				_G.geterrorhandler()( event.."('"..addonName.."'):  event fired for possibly different addon. Initializing moduleObj.addonFolder = '"..moduleObj.addonFolder.."'" )
+				G.geterrorhandler()( event.."('"..addonName.."'):  event fired for possibly different addon. Initializing moduleObj.addonFolder = '"..moduleObj.addonFolder.."'" )
 			end
-			if  _G.DEVMODE  and  not moduleObj.moduleName  and  moduleObj.addonFolder  and  moduleObj.addonFolder ~= moduleObj.name  then
+			if  G.DEVMODE  and  not moduleObj.moduleName  and  moduleObj.addonFolder  and  moduleObj.addonFolder ~= moduleObj.name  then
 				print("AceAddon('"..moduleObj.name.."'):  name different from moduleObj.addonFolder = '"..moduleObj.addonFolder.."'. Use:   if addon.SetRealAddonName then  addon:SetRealAddonName(...)  end   (or ADDON_NAME instead of ...) to explicitly set the real addon name.")
 			end
 
@@ -960,7 +960,7 @@ function AceAddon:DoInitQueue(addonName)
 		if skip then
 			skipped = skipped or {}
 			skipped[#skipped+1] = moduleObj
-			if _G.DEVMODE then  print("AceAddon('"..moduleObj.name.."'):  delaying :InitializeAddon(). This is ADDON_LOADED event for recursively loaded addon '"..addonName.."'.")  end
+			if G.DEVMODE then  print("AceAddon('"..moduleObj.name.."'):  delaying :InitializeAddon(). This is ADDON_LOADED event for recursively loaded addon '"..addonName.."'.")  end
 		else
 			-- tremove(queue, i)
 			-- Remove from queue without moving the rest.
@@ -1010,7 +1010,7 @@ end
 
 
 function AceAddon:DoEnableQueue()
-	print("AceAddon:  start enabling addons at ["..date("%H:%M:%S").."] - IsLoggedIn, IsPlayerInWorld:", _G.IsLoggedIn(), _G.IsPlayerInWorld())
+	print("AceAddon:  start enabling addons at ["..date("%H:%M:%S").."] - IsLoggedIn, IsPlayerInWorld:", G.IsLoggedIn(), G.IsPlayerInWorld())
 
 	local timeLog = AceAddon.addonEnableTimeLog
 	local times = AceAddon.addonEnableTimes
@@ -1051,7 +1051,7 @@ local function OnUpdate(frame, elapsed)
 	frame.minElapsed = min(elapsed, frame.minElapsed or elapsed)
 	frame.maxElapsed = max(elapsed, frame.maxElapsed or elapsed)
 	frame.totalElapsed = (frame.totalElapsed or 0) + elapsed
-	if  not _G.IsLoggedIn()  then  return  end
+	if  not G.IsLoggedIn()  then  return  end
 	frame.frameCount = (frame.frameCount or 0) + 1
 	if  frame.frameCount < 10  then  return  end
 

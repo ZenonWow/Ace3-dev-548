@@ -42,7 +42,7 @@
 -- @release $Id: AceDB-3.0.lua 1115 2014-09-21 11:52:35Z kaelten $
 -- @patch $Id: AceDB-3.0.lua 1115.1 2019-01 Mongusius, MINOR: 25 -> 25.1
 
-local MAJOR, MINOR = "AceDB-3.0", 25.1
+local G, MAJOR, MINOR = _G, "AceDB-3.0", 25.1
 local AceDB, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 
 if not AceDB then return end -- No upgrade needed
@@ -50,9 +50,6 @@ if not AceDB then return end -- No upgrade needed
 -- Lua APIs
 local type, pairs, next, error = type, pairs, next, error
 local setmetatable, getmetatable, rawset, rawget = setmetatable, getmetatable, rawset, rawget
-
--- WoW APIs
-local GL = _G
 
 -- Global vars/functions that we don't upvalue since they might get hooked, or upgraded
 -- List them here for Mikk's FindGlobals script
@@ -108,16 +105,16 @@ local CallbackDummy = { Fire = function() end }
   Metaprogramming functions
 ---------------------------------------------------------------------------]]
 
-local LibShared = GL.LibShared or {}  ;  GL.LibShared = LibShared
+local LibShared = G.LibShared or {}  ;  G.LibShared = LibShared
 
 -------------------------------------------------
 --- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
-LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or GL.geterrorhandler()(message)  end
+LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or G.geterrorhandler()(message)  end
 
 -------------------------------------------------
 --- LibShared. softassertf( condition, messageFormat, formatParameter...):  Report error, then continue execution, _unlike_ assert(). Formatted error message.
 LibShared.softassertf = LibShared.softassertf  or  function(ok, messageFormat, ...)
-	if ok then  return ok,nil  end  ;  local message = format(messageFormat, ...)  ;  GL.geterrorhandler()(message)  ;  return ok,message
+	if ok then  return ok,nil  end  ;  local message = format(messageFormat, ...)  ;  G.geterrorhandler()(message)  ;  return ok,message
 end
 
 -------------------------------------------------
@@ -171,7 +168,7 @@ local nonext = LibShared.nonext
 --
 LibShared.pairsOrNil = LibShared.pairsOrNil  or  function(t)
   if type(t)=='table' then  return next ,t,nil
-  elseif t then GL.geterrorhandler()("pairsOrNil(t) expected table or nil, got "..type(t))
+  elseif t then G.geterrorhandler()("pairsOrNil(t) expected table or nil, got "..type(t))
 	end
   return nonext,t,nil
 end
@@ -645,7 +642,7 @@ local tokenLocale = {}
 tokenLocale['class'],sectionKeys['class']  =  UnitClass('player')
 tokenLocale['race'], sectionKeys['race']   =  UnitRace('player')
 
-local regionKey  =  GL.GetCurrentRegion and ({"US","KR","EU","TW","CN"})[GL.GetCurrentRegion()]
+local regionKey  =  G.GetCurrentRegion and ({"US","KR","EU","TW","CN"})[G.GetCurrentRegion()]
 	or  string.sub(GetCVar('realmList'), 1, 2):upper()
 
 sectionKeys['realm']  =  GetRealmName()
@@ -679,14 +676,14 @@ local tokenKeys = {
 	global       = false,              -- The equivalent of a 'global' section is a shared profile, useless as token.
 	profile      = false,              -- .profile==true is meaningless here.
 }
-tokenLocale.Default = GL.DEFAULT
+tokenLocale.Default = G.DEFAULT
 
 tokenKeys['gender']     = ({ "Neutral","Male","Female" })[UnitSex('player')]  -- 2 = Male, 3 = Female
 tokenKeys['racegender'] = sectionKeys.race.."-"..tokenKeys.gender
 
--- tokenLocale['gender']      = GL[tokenKeys.gender:upper()]
--- tokenLocale['gender']      = GL[ ({ nil, 'MALE', 'FEMALE' })[UnitSex('player')] ]
-tokenLocale['gender']      = ({ nil, GL.MALE, GL.FEMALE })[UnitSex('player')]
+-- tokenLocale['gender']      = G[tokenKeys.gender:upper()]
+-- tokenLocale['gender']      = G[ ({ nil, 'MALE', 'FEMALE' })[UnitSex('player')] ]
+tokenLocale['gender']      = ({ nil, G.MALE, G.FEMALE })[UnitSex('player')]
 tokenLocale['racegender']  = tokenLocale.race.."-"..tokenLocale.gender
 
 
@@ -736,8 +733,8 @@ end
 
 
 
--- keyLocale[DefaultProfileKey] = GL.DEFAULT
--- keyGlobale[GL.DEFAULT] = DefaultProfileKey
+-- keyLocale[DefaultProfileKey] = G.DEFAULT
+-- keyGlobale[G.DEFAULT] = DefaultProfileKey
 
 for token,translated in pairs(tokenLocale) do
 	local englishKey = tokenKeys[token]
@@ -859,7 +856,7 @@ dbmt.__index = function(db, field)
 		local sectionDefaults = rawget(db, 'defaults') and db.defaults[field]
 		local sectionDB,new = initSection(db.sv, field, key, sectionDefaults)
 
-		if GL.DEVMODE then  softassert(not getmetatable(db).__newindex, "Some addon set  getmetatable(db).__newindex.  rawset() might be necessary.")  end
+		if G.DEVMODE then  softassert(not getmetatable(db).__newindex, "Some addon set  getmetatable(db).__newindex.  rawset() might be necessary.")  end
 		db[field] = sectionDB
 
 		if new and field == 'profile' then
@@ -1519,8 +1516,8 @@ end
 function AceDB:New(savedVariable, defaults, defaultProfileToken)
 	local sv, name = savedVariable
 	if isstring(savedVariable) then
-		sv = GL[savedVariable] or {}
-		GL[savedVariable], name = sv, savedVariable
+		sv = G[savedVariable] or {}
+		G[savedVariable], name = sv, savedVariable
 	elseif istable(savedVariable) then
 		name = tostring(sv)
 		name = sv:match("table: (.*)") or name

@@ -1,6 +1,6 @@
-local GL, LIBSTUB_NAME, LIBSTUB_REVISION = _G, LIBSTUB_NAME or 'LibStub', 3
-local LibStub = assert(GL[LIBSTUB_NAME], 'Include "LibStub.lua" before LibStub.AfterNewLibrary.')
-if LibStub.minor < 3 then  GL.geterrorhandler()( 'Include an updated revision (>=3) of "LibStub.lua" before LibStub.AfterNewLibrary.')  end
+local G, LIBSTUB_NAME, LIBSTUB_REVISION = _G, LIBSTUB_NAME or 'LibStub', 3
+local LibStub = assert(G[LIBSTUB_NAME], 'Include "LibStub.lua" before LibStub.AfterNewLibrary.')
+if LibStub.minor < 3 then  G.geterrorhandler()( 'Include an updated revision (>=3) of "LibStub.lua" before LibStub.AfterNewLibrary.')  end
 
 local LIB_NAME, LIB_REVISION  =  "LibStub.AfterNewLibrary", LIBSTUB_REVISION
 
@@ -49,7 +49,7 @@ if LibAfter then
 			observers = { libname = libname }
 			local StubMeta = self.StubMeta
 			local clonedStubMeta = { __tostring = StubMeta.__tostring, __index = StubMeta.__index}
-			lib = _G.setmetatable({ name = libname, IsNotLoaded = true, _observers = observers}, clonedStubMeta)
+			lib = G.setmetatable({ name = libname, IsNotLoaded = true, _observers = observers}, clonedStubMeta)
 			observers.lib = lib
 			self.stubs[libname] = lib
 			self.libObservers[libname] = observers
@@ -117,8 +117,8 @@ if LibAfter then
 	LibAfter.notifyList    = LibAfter.notifyList or {}
 	LibAfter.libObservers  = LibAfter.libObservers or {}
 	LibAfter.StubMeta      = LibAfter.StubMeta or {}
-	LibAfter.StubMeta.__tostring = function(lib)  return  _G.tostring(lib.name or "Library").." (is not loaded yet)"  end
-	LibAfter.StubMeta.__index    = function(lib, field)  error( _G.tostring(lib.name or "Library").." is not loaded yet.", 2)  end
+	LibAfter.StubMeta.__tostring = function(lib)  return  G.tostring(lib.name or "Library").." (is not loaded yet)"  end
+	LibAfter.StubMeta.__index    = function(lib, field)  error( G.tostring(lib.name or "Library").." is not loaded yet.", 2)  end
 	-- LibAfter.StubMeta.__newindex = function(lib, field, newvalue)  error(lib.name.." is not loaded yet.", 2)  end
 
 

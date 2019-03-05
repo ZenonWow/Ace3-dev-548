@@ -33,7 +33,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 --             and cleaned up a lot so that it no longer sucks.
 --
 
-local MAJOR, MINOR = "LibDBIcon-1.0", 34.1    -- tonumber(("$Rev: 34 $"):match("(%d+)"))
+local G, MAJOR, MINOR = _G, "LibDBIcon-1.0", 34.1    -- tonumber(("$Rev: 34 $"):match("(%d+)"))
 assert(LibStub, MAJOR .. " requires LibStub.")
 local ldb = LibStub("LibDataBroker-1.1", nil, MAJOR)
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
@@ -49,9 +49,9 @@ lib.callbackRegistered = lib.callbackRegistered or nil
 lib.callbacks = lib.callbacks or LibStub("CallbackHandler-1.0"):New(lib)
 lib.notCreated = lib.notCreated or {}
 
-local LibShared = _G.LibShared or {}  ;  _G.LibShared = LibShared
+local LibShared = G.LibShared or {}  ;  G.LibShared = LibShared
 --- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
-LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or G.geterrorhandler()(message)  end
 local safecall = assert(LibShared.safecall, "LibMinimapIcon(LibDBIcon) requires LibShared.safecall")
 
 

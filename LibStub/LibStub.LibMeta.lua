@@ -1,6 +1,6 @@
-local GL, LIBSTUB_NAME, LIBSTUB_REVISION = _G, LIBSTUB_NAME or 'LibStub', 3
-local LibStub = assert(GL[LIBSTUB_NAME], 'Include "LibStub.lua" before LibStub.AfterNewLibrary.')
-if LibStub.minor < 3 then  GL.geterrorhandler()( 'Include an updated revision (>=3) of "LibStub.lua" before LibStub.AfterNewLibrary.')  end
+local G, LIBSTUB_NAME, LIBSTUB_REVISION = _G, LIBSTUB_NAME or 'LibStub', 3
+local LibStub = assert(G[LIBSTUB_NAME], 'Include "LibStub.lua" before LibStub.AfterNewLibrary.')
+if LibStub.minor < 3 then  G.geterrorhandler()( 'Include an updated revision (>=3) of "LibStub.lua" before LibStub.AfterNewLibrary.')  end
 
 local LIB_NAME, LIB_REVISION  =  "LibStub.LibMeta", LIBSTUB_REVISION
 
@@ -49,9 +49,9 @@ if LibMeta then
 	--
 	if not oldrevision then
 		-- First load:  add .name, .revision fields and metatable to libraries.
-		for name,lib in GL.pairs(LibStub.libs) do  LibMeta:BeforeNewLibrary(lib, name, LibStub.minors[name])  end
+		for name,lib in G.pairs(LibStub.libs) do  LibMeta:BeforeNewLibrary(lib, name, LibStub.minors[name])  end
 	else
-		for name,lib in GL.pairs(LibStub.libs) do
+		for name,lib in G.pairs(LibStub.libs) do
 			local meta = getmetatable(lib)
 			if  type(meta)=='table'  and  meta.__tostring == oldtostring  then  meta.__tostring = libtostring  end
 		end

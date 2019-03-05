@@ -1,11 +1,11 @@
 --[[ Usage at the beginning of a file:
 -- UseNoGlobals:  report error when using globals but continue without halting
-local _G, _ADDON = LibEnv.UseNoGlobals(...)
-local _G, _ADDON = LibEnv.UseAddonEnv(...)
-local _G, _ADDON = LibEnv.UseGlobalEnv(...)
+local G, _ADDON = LibEnv.UseNoGlobals(...)
+local G, _ADDON = LibEnv.UseAddonEnv(...)
+local G, _ADDON = LibEnv.UseGlobalEnv(...)
 local ADDON_NAME = ...    -- if necessary
 -- UseAddonAndGlobalEnv:  use variable in _ADDON environment; if does not exist there (== nil) then in _G
-local _G, _ADDON = LibEnv.UseAddonAndGlobalEnv(...)
+local G, _ADDON = LibEnv.UseAddonAndGlobalEnv(...)
 --]]
 
 local LibEnv = LibStub:NewLibrary("LibStub.SetEnv", 1)
@@ -13,14 +13,14 @@ if not LibEnv then  return  end
 
 
 -- Import
-local _G, LibShared = getfenv(1), LibShared
+local G, LibShared = getfenv(1), LibShared
 
 -- Upvalued Lua globals:
 local assert,setfenv,rawget = assert,setfenv,rawget
 
 -- Export
-_G.LibEnv = LibEnv
-LibEnv._G = _G
+G.LibEnv = LibEnv
+LibEnv.G = G
 
 
 
@@ -30,7 +30,7 @@ local SetupEnv, CheckVar, NoGlobalsMeta, AddonAndGlobalEnvMeta
 -- API
 function LibEnv.UseNoGlobals(ADDON_NAME, _ADDON)  return SetupEnv( NoGlobalsMeta:NewEnv({}) , ADDON_NAME, _ADDON )  end
 function LibEnv.UseAddonEnv (ADDON_NAME, _ADDON)  return SetupEnv(_ADDON or ADDON_NAME, ADDON_NAME, _ADDON)  end
-function LibEnv.UseGlobalEnv(ADDON_NAME, _ADDON)  return SetupEnv(_G, ADDON_NAME, _ADDON)  end
+function LibEnv.UseGlobalEnv(ADDON_NAME, _ADDON)  return SetupEnv(G, ADDON_NAME, _ADDON)  end
 function LibEnv.UseAddonAndGlobalEnv(ADDON_NAME, _ADDON)  return SetupEnv( AddonAndGlobalEnvMeta:NewEnv({_ADDON = _ADDON}) , ADDON_NAME, _ADDON )  end
 
 -- local
@@ -40,7 +40,7 @@ function SetupEnv(ENV, ADDON_NAME, _ADDON)
 	if  type(ADDON_NAME) == 'string'  then  CheckVar(_ADDON, 'ADDON_NAME', ADDON_NAME)
 	elseif  not _ADDON  and  type(ADDON_NAME) == 'table'  then  _ADDON = ADDON_NAME
 	end
-	return _G, _ADDON
+	return G, _ADDON
 end
 
 -- local
@@ -48,7 +48,7 @@ function CheckVar(_ADDON, var, value)
 	local was = rawget(_ADDON, var)
 	-- Not using rawset. Metatable's __newindex is triggered, if set.
 	if was == nil then  _ADDON[var] = value
-	elseif was ~= value then  _G.geterrorhandler()( _G.string.format('_ADDON.%s = "%s" must be the same as currently provided %s = "%s".', var, was, var, value) )
+	elseif was ~= value then  G.geterrorhandler()( G.string.format('_ADDON.%s = "%s" must be the same as currently provided %s = "%s".', var, was, var, value) )
 	end
 end
 
@@ -63,14 +63,14 @@ local function report(envData, var, action)
 	-- if  envData.allowed[var]  then  return  end
 	
 	local varData = envData[var]
-	local filePath = _G.debugstack(3, 1, 0):match([[\AddOns\(.-):]])
-	if  not varData  then  _G.geterrorhandler()(FUNCTION_COLOR.."LibEnv.UseNoGlobals:|r  "..filePath.."  "..action.." global  "..MESSAGE_COLOR..var)  end
+	local filePath = G.debugstack(3, 1, 0):match([[\AddOns\(.-):]])
+	if  not varData  then  G.geterrorhandler()(FUNCTION_COLOR.."LibEnv.UseNoGlobals:|r  "..filePath.."  "..action.." global  "..MESSAGE_COLOR..var)  end
 	if  not varData  then  varData = {}  envData[var] = varData  end
 	
 	-- 0:debugstack, 1:report, 2:__index, 3:caller
-	local fileLine = _G.debugstack(3, 1, 0):match([[\AddOns\(.-:.-:)]])
+	local fileLine = G.debugstack(3, 1, 0):match([[\AddOns\(.-:.-:)]])
 	local prev = varData[fileLine]
-	if  not prev  then  _G.print()(FUNCTION_COLOR.."LibEnv.UseNoGlobals:|r  "..fileLine.."  "..action.." global  "..MESSAGE_COLOR..var)  end
+	if  not prev  then  G.print()(FUNCTION_COLOR.."LibEnv.UseNoGlobals:|r  "..fileLine.."  "..action.." global  "..MESSAGE_COLOR..var)  end
 	varData[fileLine] = (prev or 0) + 1
 end
 
@@ -83,12 +83,12 @@ NoGlobalsMeta = {
 	__index = function(env, var)
 		local envData = LibEnv.envData[env]
 		report(envData, var, 'read')
-		return _G[var]
+		return G[var]
 	end,
 	__newindex = function(env, var, value)
 		local envData = LibEnv.envData[env]
 		report(envData, var, 'set')
-		_G[var] = value
+		G[var] = value
 	end,
 }
 
@@ -106,15 +106,15 @@ UseAddonAndGlobalEnv = {
 		-- If [var] exists in _ADDON then return it.
 		if  value ~= nil  then  return value
 		-- Return [var] from _G.
-		else  return _G[var]
+		else  return G[var]
 		end
 	end,
 	__newindex = function(env, var, value)
 		local _ADDON = env._ADDON
 		-- If [var] exists in _ADDON then overwrite there.
 		if  nil ~= rawget(_ADDON, var)  then  _ADDON[var] = value
-		-- If [var] exists in _G then overwrite there.
-		elseif  nil ~= rawget(_G, var)  then  _G[var] = value
+		-- If [var] exists in G then overwrite there.
+		elseif  nil ~= rawget(G, var)  then  G[var] = value
 		-- If [var] does not exist then create in _ADDON.
 		else _ADDON[var] = value
 		end

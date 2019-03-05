@@ -7,15 +7,15 @@
 
 PLAYER_SPECIALIZATION_CHANGED
 
-_G.<Addon>DB = {
+G.<Addon>DB = {
 	char/class/global/etc.* = {
 		<sectionKey>* = sectionDB
 	}
 }
-_G.<Addon>Profiles = {
+G.<Addon>Profiles = {
 	<profileName>* = profile
 	_profileKeys = ..
-	_db = _G.<Addon>DB
+	_db = G.<Addon>DB
 	__/.. = {
 		profileKeys = ..
 		db = ..
@@ -90,20 +90,20 @@ function SpecsNRoles.InitAceDB()
 	local keyLocale  = AceDB.keyLocale
 	local keyGlobale = AceDB.keyGlobale
 	-- role keys:
-	keyLocale.Melee   = _G.MELEE
-	keyLocale.Ranged  = _G.RANGED
-	keyLocale.Healer  = _G.HEALER
-	keyLocale.Tank    = _G.TANK
+	keyLocale.Melee   = G.MELEE
+	keyLocale.Ranged  = G.RANGED
+	keyLocale.Healer  = G.HEALER
+	keyLocale.Tank    = G.TANK
 	-- blizrole keys:
-	keyLocale.Damage  = _G.DAMAGE
+	keyLocale.Damage  = G.DAMAGE
 	--[[ already added
-	keyLocale.Healer  = _G.HEALER
-	keyLocale.Tank    = _G.TANK
+	keyLocale.Healer  = G.HEALER
+	keyLocale.Tank    = G.TANK
 	--]]
 	--[[ builtin bliz role:  camelcased english used instead
-	keyLocale.DAMAGER = _G.DAMAGER
-	keyLocale.HEALER  = _G.HEALER
-	keyLocale.TANK    = _G.TANK
+	keyLocale.DAMAGER = G.DAMAGER
+	keyLocale.HEALER  = G.HEALER
+	keyLocale.TANK    = G.TANK
 	--]]
 
 	-- Add localized specialization names to AceDB.keyLocale
@@ -157,7 +157,7 @@ function SpecsNRoles.UpdateSpec()
 		if     indexOf(roleSpecs.Melee,  specID) then  dpsrole = 'Melee'
 		elseif indexOf(roleSpecs.Ranged, specID) then  dpsrole = 'Ranged'
 		elseif blizrole == 'DAMAGER' then
-			_G.geterrorhandler()( "Encountered an unknown specialization with 'Damage' role:  specID=".._G.tostring(specID)..", name='".._G.tostring(specLocalized).."'." )
+			G.geterrorhandler()( "Encountered an unknown specialization with 'Damage' role:  specID="..G.tostring(specID)..", name='"..G.tostring(specLocalized).."'." )
 		end
 		
 	end

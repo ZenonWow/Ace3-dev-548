@@ -11,7 +11,7 @@
 -- @name AceHook-3.0
 -- @release $Id: AceHook-3.0.lua 1090 2013-09-13 14:37:43Z nevcairiel $
 
-local MAJOR, MINOR = "AceHook-3.0", 7
+local _G, MAJOR, MINOR = _G, "AceHook-3.0", 7
 local AceHook, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 
 if not AceHook then return end -- No upgrade needed
@@ -47,7 +47,6 @@ local assert, error = assert, error
 
 -- WoW APIs
 local issecurevariable, hooksecurefunc = issecurevariable, hooksecurefunc
-local _G = _G
 
 -- functions for later definition
 local donothing, createHook, hook

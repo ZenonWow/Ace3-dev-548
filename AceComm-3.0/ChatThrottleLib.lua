@@ -24,7 +24,7 @@
 --
 
 local CTL_VERSION = 23
-local _G, LibStub, ChatThrottleLib = _G, LibStub, _G.ChatThrottleLib  -- in case some addon does "local ChatThrottleLib" above us and we're copypasted (AceComm-2, sigh)
+local G, LibStub, ChatThrottleLib = _G, _G.LibStub, _G.ChatThrottleLib  -- in case some addon does "local ChatThrottleLib" above us and we're copypasted (AceComm-2, sigh)
 
 if ChatThrottleLib then
 	if LibStub and LibStub.ImportLibrary then
@@ -38,9 +38,9 @@ if ChatThrottleLib then
 		print("ChatThrottleLib: Warning: There's an ANCIENT ChatThrottleLib.lua (pre-wow 2.0, <v16) in an addon somewhere. Get the addon updated or copy in a newer ChatThrottleLib.lua (>=v16) in it!")
 		-- ATTEMPT to unhook; this'll behave badly if someone else has hooked...
 		-- ... and if someone has securehooked, they can kiss that goodbye too... >.<
-		_G.SendChatMessage = ChatThrottleLib.ORIG_SendChatMessage
+		G.SendChatMessage = ChatThrottleLib.ORIG_SendChatMessage
 		if ChatThrottleLib.ORIG_SendAddonMessage then
-			_G.SendAddonMessage = ChatThrottleLib.ORIG_SendAddonMessage
+			G.SendAddonMessage = ChatThrottleLib.ORIG_SendAddonMessage
 		end
 	end
 	ChatThrottleLib.ORIG_SendChatMessage = nil
@@ -54,7 +54,7 @@ else
 end
 
 ChatThrottleLib.version = CTL_VERSION
-_G.ChatThrottleLib = ChatThrottleLib
+G.ChatThrottleLib = ChatThrottleLib
 
 
 
@@ -429,7 +429,7 @@ function ChatThrottleLib:SendChatMessage(prio, prefix,   text, chattype, languag
 	if not self.bQueueing and nSize < self:UpdateAvail() then
 		self.avail = self.avail - nSize
 		bMyTraffic = true
-		_G.SendChatMessage(text, chattype, language, destination)
+		G.SendChatMessage(text, chattype, language, destination)
 		bMyTraffic = false
 		self.Prio[prio].nTotalSent = self.Prio[prio].nTotalSent + nSize
 		if callbackFn then
@@ -441,7 +441,7 @@ function ChatThrottleLib:SendChatMessage(prio, prefix,   text, chattype, languag
 
 	-- Message needs to be queued
 	local msg = NewMsg()
-	msg.f = _G.SendChatMessage
+	msg.f = G.SendChatMessage
 	msg[1] = text
 	msg[2] = chattype or "SAY"
 	msg[3] = language
@@ -482,7 +482,7 @@ function ChatThrottleLib:SendAddonMessage(prio, prefix, text, chattype, target, 
 	if not self.bQueueing and nSize < self:UpdateAvail() then
 		self.avail = self.avail - nSize
 		bMyTraffic = true
-		_G.SendAddonMessage(prefix, text, chattype, target)
+		G.SendAddonMessage(prefix, text, chattype, target)
 		bMyTraffic = false
 		self.Prio[prio].nTotalSent = self.Prio[prio].nTotalSent + nSize
 		if callbackFn then
@@ -494,7 +494,7 @@ function ChatThrottleLib:SendAddonMessage(prio, prefix, text, chattype, target, 
 
 	-- Message needs to be queued
 	local msg = NewMsg()
-	msg.f = _G.SendAddonMessage
+	msg.f = G.SendAddonMessage
 	msg[1] = prefix
 	msg[2] = text
 	msg[3] = chattype
