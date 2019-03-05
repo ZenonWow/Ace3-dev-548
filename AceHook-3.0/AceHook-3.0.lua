@@ -90,12 +90,12 @@ end
 
 
 function createHook(self, handler, orig, secure, failsafe)
-	local uid
+	local hookedF
 	local method = type(handler) == "string"
 	if failsafe and not secure then
 		-- failsafe hook creation
-		uid = function(...)
-			if actives[uid] then
+		hookedF = function(...)
+			if actives[hookedF] then
 				if method then
 					self[handler](self, ...)
 				else
@@ -107,8 +107,8 @@ function createHook(self, handler, orig, secure, failsafe)
 		-- /failsafe hook
 	else
 		-- all other hooks
-		uid = function(...)
-			if actives[uid] then
+		hookedF = function(...)
+			if actives[hookedF] then
 				if method then
 					return self[handler](self, ...)
 				else
@@ -120,7 +120,7 @@ function createHook(self, handler, orig, secure, failsafe)
 		end
 		-- /hook
 	end
-	return uid
+	return hookedF
 end
 
 
@@ -178,22 +178,22 @@ function hook(self, obj, method, handler, script, secure, raw, forceSecure, usag
 		end
 	end
 	
-	local uid
+	local hookedF
 	if obj then
-		uid = registry[self][obj] and registry[self][obj][method]
+		hookedF = registry[self][obj] and registry[self][obj][method]
 	else
-		uid = registry[self][method]
+		hookedF = registry[self][method]
 	end
 	
-	if uid then
-		if actives[uid] then
+	if hookedF then
+		if actives[hookedF] then
 			-- Only two sane choices exist here.  We either a) error 100% of the time or b) always unhook and then hook
 			-- choice b would likely lead to odd debuging conditions or other mysteries so we're going with a.
 			error(format("Attempting to rehook already active hook %s.", method))
 		end
 		
-		if handlers[uid] == handler then -- turn on a decative hook, note enclosures break this ability, small memory leak
-			actives[uid] = true
+		if handlers[hookedF] == handler then -- turn on a decative hook, note enclosures break this ability, small memory leak
+			actives[hookedF] = true
 			return
 		elseif obj then -- is there any reason not to call unhook instead of doing the following several lines?
 			if self.hooks and self.hooks[obj] then
@@ -206,8 +206,8 @@ function hook(self, obj, method, handler, script, secure, raw, forceSecure, usag
 			end
 			registry[self][method] = nil
 		end
-		handlers[uid], actives[uid], scripts[uid] = nil, nil, nil
-		uid = nil
+		handlers[hookedF], actives[hookedF], scripts[hookedF] = nil, nil, nil
+		hookedF = nil
 	end
 	
 	local orig
@@ -219,16 +219,16 @@ function hook(self, obj, method, handler, script, secure, raw, forceSecure, usag
 		orig = _G[method]
 	end
 	
-	if not orig then
-		error(format("%s: Attempting to hook a non existing target", usage), 3)
+	if  not orig  and  not script  then
+		error( usage..": Attempting to hook a non existing target", 3 )
 	end
 	
-	uid = createHook(self, handler, orig, secure, not (raw or secure))
+	hookedF = createHook(self, handler, orig, secure, not (raw or secure))
 	
 	if obj then
 		self.hooks[obj] = self.hooks[obj] or {}
 		registry[self][obj] = registry[self][obj] or {}
-		registry[self][obj][method] = uid
+		registry[self][obj][method] = hookedF
 
 		if not secure then
 			self.hooks[obj][method] = orig
@@ -239,29 +239,29 @@ function hook(self, obj, method, handler, script, secure, raw, forceSecure, usag
 			-- This will make the hook insecure, but shouldnt matter, since it was empty before. 
 			-- It does not taint the full frame.
 			if not secure or orig == donothing then
-				obj:SetScript(method, uid)
+				obj:SetScript(method, hookedF)
 			elseif secure then
-				obj:HookScript(method, uid)
+				obj:HookScript(method, hookedF)
 			end
 		else
 			if not secure then
-				obj[method] = uid
+				obj[method] = hookedF
 			else
-				hooksecurefunc(obj, method, uid)
+				hooksecurefunc(obj, method, hookedF)
 			end
 		end
 	else
-		registry[self][method] = uid
+		registry[self][method] = hookedF
 		
 		if not secure then
-			_G[method] = uid
+			_G[method] = hookedF
 			self.hooks[method] = orig
 		else
-			hooksecurefunc(method, uid)
+			hooksecurefunc(method, hookedF)
 		end
 	end
 	
-	actives[uid], handlers[uid], scripts[uid] = true, handler, script and true or nil	
+	actives[hookedF], handlers[hookedF], scripts[hookedF] = true, handler, script and true or nil	
 end
 
 
@@ -445,19 +445,19 @@ function mixin:Unhook(obj, method)
 		error(format("%s: 'method' - expeting string got %s", usage, type(method)), 2)
 	end
 	
-	local uid
+	local hookedF
 	if obj then
-		uid = registry[self][obj] and registry[self][obj][method]
+		hookedF = registry[self][obj] and registry[self][obj][method]
 	else
-		uid = registry[self][method]
+		hookedF = registry[self][method]
 	end
 	
-	if not uid or not actives[uid] then
+	if not hookedF or not actives[hookedF] then
 		-- Declining to error on an unneeded unhook since the end effect is the same and this would just be annoying.
 		return false
 	end
 	
-	actives[uid], handlers[uid] = nil, nil
+	actives[hookedF], handlers[hookedF] = nil, nil
 	
 	if obj then
 		registry[self][obj][method] = nil
@@ -466,10 +466,10 @@ function mixin:Unhook(obj, method)
 		-- if the hook reference doesnt exist, then its a secure hook, just bail out and dont do any unhooking
 		if not self.hooks[obj] or not self.hooks[obj][method] then return true end
 		
-		if scripts[uid] and obj:GetScript(method) == uid then  -- unhooks scripts
+		if scripts[hookedF] and obj:GetScript(method) == hookedF then  -- unhooks scripts
 			obj:SetScript(method, self.hooks[obj][method] ~= donothing and self.hooks[obj][method] or nil)	
-			scripts[uid] = nil
-		elseif obj and self.hooks[obj] and self.hooks[obj][method] and obj[method] == uid then -- unhooks methods
+			scripts[hookedF] = nil
+		elseif obj and self.hooks[obj] and self.hooks[obj][method] and obj[method] == hookedF then -- unhooks methods
 			obj[method] = self.hooks[obj][method]
 		end
 		
@@ -481,7 +481,7 @@ function mixin:Unhook(obj, method)
 		-- if self.hooks[method] doesn't exist, then this is a SecureHook, just bail out
 		if not self.hooks[method] then return true end
 		
-		if self.hooks[method] and _G[method] == uid then -- unhooks functions
+		if self.hooks[method] and _G[method] == hookedF then -- unhooks functions
 			_G[method] = self.hooks[method]
 		end
 		
