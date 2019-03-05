@@ -15,7 +15,7 @@ local PlaySound, CreateFrame, UIParent = PlaySound, CreateFrame, UIParent
 
 local wowMoP
 do
-	local _, _, _, interface = GetBuildInfo()
+	local _, _, _, interface = _G.GetBuildInfo()
 	wowMoP = (interface >= 50000)
 end
 

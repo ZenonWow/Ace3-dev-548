@@ -61,8 +61,10 @@ end
 
 
 -- Allow hooking _G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
--- Avoiding tailcall: errorhandler() function would show up as "?" in stacktrace, making it harder to understand.
-LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  return true and _G.geterrorhandler()(errorMessage)  end
+-- Call through errorhandler() local, thus the errorhandler() function name is printed in stacktrace, not just a line number.
+-- Also avoid tailcall with select(1,...). A tailcall would show LibShared.errorhandler() function as "?" in stacktrace, making it harder to identify.
+LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  local errorhandler = _G.geterrorhandler() ; return select( 1, errorhandler(errorMessage) )  end
+
 local errorhandler = LibShared.errorhandler
 local istype2, isstring, isfunc, istable = LibShared.istype2, LibShared.isstring, LibShared.isfunc, LibShared.istable
 	
