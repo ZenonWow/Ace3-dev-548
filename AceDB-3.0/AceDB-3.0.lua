@@ -10,6 +10,7 @@
 -- * **race** Race-specific data. All of the players characters of the same race share this database.
 -- * **faction** Faction-specific data. All of the players characters of the same faction share this database.
 -- * **factionrealm** Faction and realm specific data. All of the players characters on the same realm and of the same faction share this database.
+-- * **locale** Locale specific data, based on the locale of the players game client.
 -- * **global** Global Data. All characters on the same account share this database.
 -- * **profile** Profile-specific data. All characters using the same profile share this database. The user can control which profile should be used.
 --
@@ -43,7 +44,7 @@
 -- @patch $Id: AceDB-3.0.lua 1115.1 2019-01 Mongusius, MINOR: 25 -> 25.1
 
 local G, MAJOR, MINOR = _G, "AceDB-3.0", 25.1
-local AceDB, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
+local AceDB = LibStub:NewLibrary(MAJOR, MINOR)
 
 if not AceDB then return end -- No upgrade needed
 

@@ -35,10 +35,8 @@ local reg = LibStub("AceConfigRegistry-3.0", nil, MAJOR)
 -- Export to LibShared:  errorhandler, softassert, safecall/safecallDispatch
 local LibShared = G.LibShared or {}  ;  G.LibShared = LibShared
 
--- Allow hooking G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
--- Call through errorhandler() local, thus the errorhandler() function name is printed in stacktrace, not just a line number.
--- Also avoid tailcall with select(1,...). A tailcall would show LibShared.errorhandler() function as "?" in stacktrace, making it harder to identify.
-LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  local errorhandler = G.geterrorhandler() ; return select( 1, errorhandler(errorMessage) )  end
+--- LibShared. errorhandler(errorMessage):  Report error. Calls _G.geterrorhandler(), without tailcall to generate readable stacktrace.
+LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  local errorhandler = G.geterrorhandler() ; return errorhandler(errorMessage) or errorMessage  end
 local errorhandler = LibShared.errorhandler
 
 --- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
@@ -105,8 +103,8 @@ elseif not LibShared.safecallDispatch then
 		end
 
 		local dispatcher = SafecallDispatchers[select('#',...)]
-		-- Can't avoid tailcall without inefficiently packing and unpacking the multiple return values.
-		return dispatcher(unsafeFunc, ...)
+		-- Avoid tailcall with select(1,...).
+		return select( 1, dispatcher(unsafeFunc, ...) )
 	end
 
 end -- LibShared.safecallDispatch

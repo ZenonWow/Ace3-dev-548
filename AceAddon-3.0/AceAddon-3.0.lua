@@ -28,11 +28,16 @@
 -- end
 -- @class file
 -- @name AceAddon-3.0.lua
--- @release $Id: AceAddon-3.0.lua 1084 2013-04-27 20:14:11Z nevcairiel $
--- @patch $Id: AceAddon-3.0.lua 1084.1 2019-01 Mongusius, MINOR: 12 -> 12.1
--- 12.1 moved safecall and AutoTablesMeta implementation to CallbackHandler.
+-- @release $Id: AceAddon-3.0.lua 1184 2018-07-21 14:13:14Z nevcairiel $
+-- @patch $Id: AceAddon-3.0.lua 1184.1 2019-01 Mongusius, MINOR: 12 -> 13
+-- Revision 13:
+--   exports _G.AceAddon3
+--   added  MyAddon:ReEnable(), :Enable(false), :EnableModule("SubModule", false), :HasBeenEnabled()
+--   merged DisableAddon() into EnableAddon(enable)
+--   avoids tailcall in errorhandler(), so the function names are printed the stackrace in error reports.
+--   moved safecall and AutoTablesMeta implementation to CallbackHandler.
 
-local MAJOR, MINOR = "AceAddon-3.0", 12.1
+local MAJOR, MINOR = "AceAddon-3.0", 13
 local G, LibStub = _G, LibStub
 local AceAddon, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not AceAddon then return end -- No Upgrade needed.
@@ -63,10 +68,8 @@ end
 -- AutoTablesMeta: metatable that automatically creates empty inner tables when keys are first referenced.
 LibShared.AutoTablesMeta = LibShared.AutoTablesMeta or { __index = function(self, key)  if key ~= nil then  local v={} ; self[key]=v ; return v  end  end }
 
--- Allow hooking G.geterrorhandler(): don't cache/upvalue it or the errorhandler returned.
--- Call through errorhandler() local, thus the errorhandler() function name is printed in stacktrace, not just a line number.
--- Also avoid tailcall with select(1,...). A tailcall would show LibShared.errorhandler() function as "?" in stacktrace, making it harder to identify.
-LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  local errorhandler = G.geterrorhandler() ; return select( 1, errorhandler(errorMessage) )  end
+--- LibShared. errorhandler(errorMessage):  Report error. Calls _G.geterrorhandler(), without tailcall to generate readable stacktrace.
+LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  local errorhandler = G.geterrorhandler() ; return errorhandler(errorMessage) or errorMessage  end
 
 --- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
 LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or G.geterrorhandler()(message)  end
@@ -134,8 +137,8 @@ elseif not LibShared.safecallDispatch then
 		end
 
 		local dispatcher = SafecallDispatchers[select('#',...)]
-		-- Can't avoid tailcall without inefficiently packing and unpacking the multiple return values.
-		return dispatcher(unsafeFunc, ...)
+		-- Avoid tailcall with select(1,...).
+		return select( 1, dispatcher(unsafeFunc, ...) )
 	end
 
 end -- LibShared.safecallDispatch
@@ -284,7 +287,7 @@ local function moduleToString(moduleObj)  return moduleObj.name  end
 -- **Note:** Do not call this function manually, unless you're absolutely sure that you know what you are doing.
 --
 function AceAddon:_InitModuleObj(moduleObj)
-  -- 0:_InitModuleObj, 1:NewAddon/NewModule, 2:<caller>
+	-- 0:_InitModuleObj, 1:NewAddon/NewModule, 2:<caller>
 	local stackFramesUp = 2
 	self.DetermineAddonFolder(stackFramesUp, moduleObj)
 
@@ -308,7 +311,7 @@ function AceAddon:_InitModuleObj(moduleObj)
 	-- moduleObj.orderedModules = {}
 	-- moduleObj.defaultModuleLibraries = {}
 
-  -- Create queue if this is a recursively loaded addon.
+	-- Create queue if this is a recursively loaded addon.
 	self.initializequeue = self.initializequeue or {}
 	-- Add to queue of addons to be initialized upon ADDON_LOADED.
 	tinsert(self.initializequeue, moduleObj)
@@ -317,7 +320,7 @@ end
 
 
 function AceAddon.DetermineAddonFolder(stackFramesUp, moduleObj)
-  -- 0:debugstack, 1:DetermineAddonFolder, 2:_InitModuleObj, 3:NewAddon/NewModule, 4:<caller>
+	-- 0:debugstack, 1:DetermineAddonFolder, 2:_InitModuleObj, 3:NewAddon/NewModule, 4:<caller>
 	local callDepth = (stackFramesUp or 0) + 2
 	local callerStack = G.debugstack(callDepth, 3, 0)  -- read 3 frames to allow for tailcails (no filepath in those)
 	-- Parse the addon's folder name in  Interface\AddOns\  folder.
