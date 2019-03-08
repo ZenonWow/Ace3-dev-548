@@ -14,7 +14,7 @@
 -- GLOBALS: <none>
 -- Exported to _G:  LibStub, LibStub:NewLibrary()
 -- Used from _G:  error,getmetatable,setmetatable
--- Upvalued:  type,tonumber,tostring,strmatch
+-- Upvalued Lua globals:  type,tonumber,tostring,strmatch
 
 local G, LIBSTUB_NAME, LIBSTUB_REVISION = _G, LIBSTUB_NAME or 'LibStub', 3
 local LibStub = G[LIBSTUB_NAME] or { minor = 0, libs = {}, stubs = {}, minors = {} }  --, dependents = {} }

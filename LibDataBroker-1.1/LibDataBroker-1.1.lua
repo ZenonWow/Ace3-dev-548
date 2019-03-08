@@ -101,7 +101,7 @@ function LibDataBroker:NewDataObject(name, inputFields)
 	local attributes = existing and getmetatable(existing).__index  or  { name = name }
 
 	if inputFields then
-		asserttype(inputFields, 'table', "Usage: LDB:NewDataObject(name, dataobject): `dataobject` - ")
+		asserttype(inputFields, 'table', "Usage: LDB:NewDataObject(name, dataobject):  `dataobject` - ")
 		-- Move fields from the dataobject to the attributestorage:  merge(attributes, inputFields)
 		for k,v in pairs(inputFields) do  attributes[k] = v  end
 		wipe(inputFields)

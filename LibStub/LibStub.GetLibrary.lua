@@ -1,7 +1,7 @@
 -- GLOBALS: <none>
 -- Exported to _G:  LibStub(name, [optional]), LibStub:GetLibrary(name, [optional]), LibStub:RequireLibrary(name, client), LibStub:IterateLibraries() [not used]
 -- Used from _G:  error,type,tostring,getmetatable,setmetatable
--- Upvalued: <none>
+-- Upvalued Lua globals:  <none>
 
 local G, LIBSTUB_NAME, LIBSTUB_REVISION = _G, LIBSTUB_NAME or 'LibStub', 3
 local LibStub = assert(G[LIBSTUB_NAME], 'Include "LibStub.lua" before LibStub.GetLibrary.')
