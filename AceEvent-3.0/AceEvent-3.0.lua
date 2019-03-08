@@ -11,7 +11,7 @@
 -- @name AceEvent-3.0
 -- @release $Id: AceEvent-3.0.lua 975 2010-10-23 11:26:18Z nevcairiel $
 -- @patch $Id: AceEvent-3.0.lua 975.1 2019-01 Mongusius, MINOR: 3 -> 3.1
--- 3.1 added AceEvent:IsEventRegistered(eventname)
+-- 3.1 added AceEvent:IsEventRegistered(eventName)
 
 local MAJOR, MINOR = "AceEvent-3.0", 3.1
 local AceEvent = LibStub:NewLibrary(MAJOR, MINOR)
@@ -80,19 +80,19 @@ if not AceEvent.events then
 	AceEvent.events = CallbackHandler:New(AceEvent, "RegisterEvent", "UnregisterEvent", "UnregisterAllEvents")
 end
 
-function AceEvent:IsEventRegistered(eventname)
-	assert(self ~= AceEvent, "Usage: receiver:IsEventRegistered(`eventname`): do not use AceEvent:IsEventRegistered(), use your own object as self/`receiver`", 2)
-	local callbacks = rawget(AceEvent.events.events, eventname)
-	return  callbacks  and  callbacks[self] ~= nil
+function AceEvent.IsEventRegistered(receiver, eventName)
+	assert(receiver ~= AceEvent, "Usage: receiver:IsEventRegistered(`eventName`):  do not use AceEvent:IsEventRegistered(), use your own object as self/`receiver`", 2)
+	local callbacks = rawget(AceEvent.events.events, eventName)
+	return  callbacks  and  callbacks[receiver] ~= nil
 end
 
 
-function AceEvent.events:OnUsed(target, eventname) 
-	AceEvent.frame:RegisterEvent(eventname)
+function AceEvent.events:OnUsed(sender, eventName) 
+	AceEvent.frame:RegisterEvent(eventName)
 end
 
-function AceEvent.events:OnUnused(target, eventname) 
-	AceEvent.frame:UnregisterEvent(eventname)
+function AceEvent.events:OnUnused(sender, eventName) 
+	AceEvent.frame:UnregisterEvent(eventName)
 end
 
 
@@ -103,7 +103,9 @@ end
 
 if not AceEvent.messages then
 	AceEvent.messages = CallbackHandler:New(AceEvent, "RegisterMessage", "UnregisterMessage", "UnregisterAllMessages")
-	AceEvent.SendMessage = AceEvent.messages.Fire
+	-- AceEvent.SendMessage():  wrap messages:Fire(...) instead of exporting internal api, so :Fire() gets the proper `self`.
+	-- Historically :Fire() threw away `self` and used the upvalued `registry`. This meant that every registry had its own Fire() closure.
+	AceEvent.SendMessage = function(embedder, ...)  AceEvent.messages:Fire(...)  end
 end
 
 
@@ -118,35 +120,35 @@ local mixins = {
 for i,name in ipairs(mixins) do  AceEvent.mixin[name] = AceEvent[name]  end
 
 
--- Embeds AceEvent into the target object making the functions from the mixin object available on target:..
--- @param target target object to embed AceEvent in
-function AceEvent:Embed(target)
-	self.embeds[target] = true
+-- Embeds AceEvent into the client object making the functions from the mixin object available on client:..
+-- @param client client object to embed AceEvent in
+function AceEvent:Embed(client)
+	self.embeds[client] = true
 	for name,method in pairs(self.mixin) do
-		target[name] = method
+		client[name] = method
 	end
-	return target
+	return client
 end
 
--- AceEvent:OnEmbedDisable( target )
--- target (object) - target object that is being disabled
+-- AceEvent:OnEmbedDisable( client )
+-- client (object) - client object that is being disabled
 --
--- Unregister all events messages etc when the target disables.
--- this method should be called by the target manually or by an addon framework
-function AceEvent:OnEmbedDisable(target)
-	target:UnregisterAllEvents()
-	target:UnregisterAllMessages()
+-- Unregister all events messages etc when the client disables.
+-- this method should be called by the client manually or by AceAddon or another addon framework
+function AceEvent:OnEmbedDisable(client)
+	client:UnregisterAllEvents()
+	client:UnregisterAllMessages()
 end
 
 -- Script to fire blizzard events into the event listeners
 local events = AceEvent.events
-AceEvent.frame:SetScript("OnEvent", function(this, event, ...)
-	events:Fire(event, ...)
+AceEvent.frame:SetScript("OnEvent", function(frame, eventName, ...)
+	events:Fire(eventName, ...)
 end)
 
 --- Finally: upgrade our old embeds
-for target, v in pairs(AceEvent.embeds) do
-	AceEvent:Embed(target)
+for client, v in pairs(AceEvent.embeds) do
+	AceEvent:Embed(client)
 end
 
 
