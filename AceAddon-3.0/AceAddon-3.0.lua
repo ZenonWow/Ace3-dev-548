@@ -91,7 +91,7 @@ elseif not LibShared.safecallDispatch then
 
 	-- Export  LibShared.safecallDispatch
 	local SafecallDispatchers = {}
-	function SafecallDispatchers:CreateDispatcher(argCount)
+	function SafecallDispatchers:CreateDispatcher(argNum)
 		local sourcecode = [===[
 			local xpcall, errorhandler = ...
 			local unsafeFuncUpvalue, ARGS
@@ -107,12 +107,12 @@ elseif not LibShared.safecallDispatch then
 		]===]
 
 		local ARGS = {}
-		for i = 1, argCount do ARGS[i] = "a"..i end
+		for i = 1, argNum do ARGS[i] = "a"..i end
 		sourcecode = sourcecode:gsub("ARGS", tconcat(ARGS, ","))
-		local creator = assert(loadstring(sourcecode, "SafecallDispatchers[argCount="..argCount.."]"))
+		local creator = assert(loadstring(sourcecode, "SafecallDispatchers[argNum="..argNum.."]"))
 		local dispatcher = creator(xpcall, errorhandler)
-		-- rawset(self, argCount, dispatcher)
-		self[argCount] = dispatcher
+		-- rawset(self, argNum, dispatcher)
+		self[argNum] = dispatcher
 		return dispatcher
 	end
 
@@ -147,7 +147,9 @@ end -- LibShared.safecallDispatch
 
 
 -- Choose the safecall implementation to use.
-local safecall = LibShared.safecall or LibShared.safecallDispatch
+LibShared.safecall = LibShared.safecall or LibShared.safecallDispatch
+local safecall = LibShared.safecall
+
 -- Forward declaration
 local Embed
 -- Client mixin methods refactored to AceAddon.mixin
@@ -271,7 +273,8 @@ function mixin.NewModule(parentModule, moduleName, ...)
 	parentModule.orderedModules = parentModule.orderedModules or {}
 	tinsert(parentModule.orderedModules, moduleObj)
 
-	safecall(parentModule.OnModuleCreated, parentModule, moduleObj) -- Was in Ace2 and I think it could be a cool thing to have handy.
+	-- Call through LibShared field so dear Lua shows the function name in the callstack. If called through the upvalue safecall, then it's just line numbers.
+	LibShared.safecall(parentModule.OnModuleCreated, parentModule, moduleObj) -- Was in Ace2 and I think it could be a cool thing to have handy.
 
 	return moduleObj
 end
@@ -746,12 +749,13 @@ function AceAddon:InitializeAddon(moduleObj)
 
   -- Initialized, but not enabled status. Set before OnInitialize() so calling :Enable() will actually enable the module.
 	self.statuses[fullName] = false
-	safecall(moduleObj.OnInitialize, moduleObj)
+	-- Call through LibShared field so dear Lua shows the function name in the callstack. If called through the upvalue safecall, then it's just line numbers.
+	LibShared.safecall(moduleObj.OnInitialize, moduleObj)
 	
 	local embeds = self.embeds[moduleObj]
 	for i = 1, #embeds do
 		local lib = LibStub:GetLibrary(embeds[i], true)
-		if lib then safecall(lib.OnEmbedInitialize, lib, moduleObj) end
+		if lib then LibShared.safecall(lib.OnEmbedInitialize, lib, moduleObj) end
 	end
 	
 	-- we don't call InitializeAddon on modules specifically, this is handled
@@ -810,7 +814,7 @@ function AceAddon:EnableAddon(moduleObj, enable, temp)
 	moduleObj.enabledState = enable
 
 	-- Call :OnEnable() / :OnDisable()
-	safecall(moduleObj[ModuleCallback], moduleObj)
+	LibShared.safecall(moduleObj[ModuleCallback], moduleObj)
 
 	-- The module is considered enabled/disabled after :OnEnable() / :OnDisable().
 	-- submodule:OnEnable() will see self.parentModule:IsEnabled() == enable
@@ -830,7 +834,7 @@ function AceAddon:EnableAddon(moduleObj, enable, temp)
 		local OnEmbedCallback = enable and 'OnEmbedEnable' or 'OnEmbedDisable'
 		for i = 1, #embeds do
 			local lib = LibStub:GetLibrary(embeds[i], true)
-			if lib then safecall(lib[OnEmbedCallback], lib, moduleObj) end
+			if lib then LibShared.safecall(lib[OnEmbedCallback], lib, moduleObj) end
 		end
 
 		-- Enable/disable submodules.

@@ -67,7 +67,7 @@ elseif not LibShared.safecallDispatch then
 
 	-- Export  LibShared.safecallDispatch
 	local SafecallDispatchers = {}
-	function SafecallDispatchers:CreateDispatcher(argCount)
+	function SafecallDispatchers:CreateDispatcher(argNum)
 		local sourcecode = [===[
 			local xpcall, errorhandler = ...
 			local unsafeFuncUpvalue, ARGS
@@ -83,12 +83,12 @@ elseif not LibShared.safecallDispatch then
 		]===]
 
 		local ARGS = {}
-		for i = 1, argCount do ARGS[i] = "a"..i end
+		for i = 1, argNum do ARGS[i] = "a"..i end
 		sourcecode = sourcecode:gsub("ARGS", tconcat(ARGS, ","))
-		local creator = assert(loadstring(sourcecode, "SafecallDispatchers[argCount="..argCount.."]"))
+		local creator = assert(loadstring(sourcecode, "SafecallDispatchers[argNum="..argNum.."]"))
 		local dispatcher = creator(xpcall, errorhandler)
-		-- rawset(self, argCount, dispatcher)
-		self[argCount] = dispatcher
+		-- rawset(self, argNum, dispatcher)
+		self[argNum] = dispatcher
 		return dispatcher
 	end
 
@@ -125,7 +125,8 @@ end -- LibShared.safecallDispatch
 
 
 -- Choose the safecall implementation to use.
-local safecall = LibShared.safecall or LibShared.safecallDispatch
+LibShared.safecall = LibShared.safecall or LibShared.safecallDispatch
+local safecall = LibShared.safecall
 
 AceGUI.WidgetRegistry = AceGUI.WidgetRegistry or {}
 AceGUI.LayoutRegistry = AceGUI.LayoutRegistry or {}
