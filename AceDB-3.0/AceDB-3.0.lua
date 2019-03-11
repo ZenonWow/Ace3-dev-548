@@ -109,11 +109,11 @@ local CallbackDummy = { Fire = function() end }
 local LibShared = G.LibShared or {}  ;  G.LibShared = LibShared
 
 -------------------------------------------------
---- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
+--- LibShared. softassert(condition, message):  Report error, then continue execution, *unlike* assert().
 LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or G.geterrorhandler()(message)  end
 
 -------------------------------------------------
---- LibShared. softassertf( condition, messageFormat, formatParameter...):  Report error, then continue execution, _unlike_ assert(). Formatted error message.
+--- LibShared. softassertf( condition, messageFormat, formatParameter...):  Report error, then continue execution, *unlike* assert(). Formatted error message.
 LibShared.softassertf = LibShared.softassertf  or  function(ok, messageFormat, ...)
 	if ok then  return ok,nil  end  ;  local message = format(messageFormat, ...)  ;  G.geterrorhandler()(message)  ;  return ok,message
 end

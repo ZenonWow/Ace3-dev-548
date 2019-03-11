@@ -53,6 +53,10 @@ local LibShared = G.LibShared or {}  ;  G.LibShared = LibShared
 LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  local errorhandler = G.geterrorhandler() ; return errorhandler(errorMessage) or errorMessage  end
 local errorhandler = LibShared.errorhandler
 
+--- LibShared. softassert(condition, message):  Report error, then continue execution, *unlike* assert().
+LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or LibShared.errorhandler(message)  end
+
+
 
 if  select(4, G.GetBuildInfo()) >= 80000  then
 
@@ -101,9 +105,6 @@ elseif not LibShared.safecallDispatch then
 		-- The errorhandler is expected to be the same at both times: callbacks usually don't change it.
 		--return xpcall(unsafeFunc, G.geterrorhandler())
 	end
-
-	--- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
-	LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or G.geterrorhandler()(message)  end
 
 	function LibShared.safecallDispatch(unsafeFunc, ...)
 		-- we check to see if unsafeFunc is actually a function here and don't error when it isn't

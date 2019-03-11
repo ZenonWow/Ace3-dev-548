@@ -6,7 +6,7 @@ local LibDataBroker = LibStub("LibDataBroker-1.1")
 
 local LibShared = G.LibShared or {}  ;  G.LibShared = LibShared
 LibShared.istable   = LibShared.istable   or function(value)  return  type(value)=='table'    and value  end
---- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
+--- LibShared. softassert(condition, message):  Report error, then continue execution, *unlike* assert().
 LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or G.geterrorhandler()(message)  end
 
 

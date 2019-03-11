@@ -314,7 +314,7 @@ end
 
 
 local LibShared = _G.LibShared or {}  ;  _G.LibShared = LibShared
---- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
+--- LibShared. softassert(condition, message):  Report error, then continue execution, *unlike* assert().
 LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
 
 

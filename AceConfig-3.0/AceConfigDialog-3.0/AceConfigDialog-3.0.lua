@@ -39,8 +39,8 @@ local LibShared = G.LibShared or {}  ;  G.LibShared = LibShared
 LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  local errorhandler = G.geterrorhandler() ; return errorhandler(errorMessage) or errorMessage  end
 local errorhandler = LibShared.errorhandler
 
---- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
-LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or G.geterrorhandler()(message)  end
+--- LibShared. softassert(condition, message):  Report error, then continue execution, *unlike* assert().
+LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or LibShared.errorhandler(message)  end
 local softassert = LibShared.softassert
 
 

@@ -70,11 +70,13 @@ LibShared.AutoTablesMeta = LibShared.AutoTablesMeta or { __index = function(self
 
 --- LibShared. errorhandler(errorMessage):  Report error. Calls _G.geterrorhandler(), without tailcall to generate readable stacktrace.
 LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  local errorhandler = G.geterrorhandler() ; return errorhandler(errorMessage) or errorMessage  end
+local errorhandler = LibShared.errorhandler
 
---- LibShared. softassert(condition, message):  Report error, then continue execution, _unlike_ assert().
-LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or G.geterrorhandler()(message)  end
+--- LibShared. softassert(condition, message):  Report error, then continue execution, *unlike* assert().
+LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or LibShared.errorhandler(message)  end
+local softassert = LibShared.softassert
 
-local istype2,AutoTablesMeta,errorhandler,softassert = LibShared.istype2, LibShared.AutoTablesMeta, LibShared.errorhandler, LibShared.softassert
+local istype2,AutoTablesMeta = LibShared.istype2, LibShared.AutoTablesMeta
 
 
 
@@ -142,7 +144,6 @@ elseif not LibShared.safecallDispatch then
 	end
 
 end -- LibShared.safecallDispatch
-
 
 
 
@@ -953,7 +954,7 @@ function AceAddon:DoInitQueue(addonName)
 		if  addonName  and  not moduleObj.realAddonName  then
 			-- moduleObj.addonFolder == moduleObj.baseName == addonName expected
 			if  moduleObj.addonFolder  and  moduleObj.addonFolder ~= addonName  then
-				G.geterrorhandler()( event.."('"..addonName.."'):  event fired for possibly different addon. Initializing moduleObj.addonFolder = '"..moduleObj.addonFolder.."'" )
+				G.geterrorhandler()( "AceAddon:DoInitQueue('"..addonName.."'):  ADDON_LOADED event fired for possibly different addon. Initializing moduleObj.addonFolder = '"..moduleObj.addonFolder.."'" )
 			end
 			if  G.DEVMODE  and  not moduleObj.moduleName  and  moduleObj.addonFolder  and  moduleObj.addonFolder ~= moduleObj.name  then
 				print("AceAddon('"..moduleObj.name.."'):  name different from moduleObj.addonFolder = '"..moduleObj.addonFolder.."'. Use:   if addon.SetRealAddonName then  addon:SetRealAddonName(...)  end   (or ADDON_NAME instead of ...) to explicitly set the real addon name.")
