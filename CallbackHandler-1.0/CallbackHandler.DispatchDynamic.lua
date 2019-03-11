@@ -1,4 +1,9 @@
-if not CallbackHandler.DispatchDynamic then
+local G, LIB_NAME, LIB_REVISION  =  _G, "CallbackHandler-1.0", 7.1
+assert(LibStub and LibStub.NewLibraryPart, 'Include "LibStub.NewLibraryPart.lua" before CallbackHandler.DispatchDynamic.')
+local CallbackHandler = LibStub:NewLibraryPart(LIB_NAME, LIB_REVISION, 'DispatchDynamic')
+
+
+if CallbackHandler then
 
 	local next,type,select,unpack,xpcall = next,type,select,unpack,xpcall
 
@@ -32,10 +37,9 @@ if not CallbackHandler.DispatchDynamic then
 		-- local errorhandler = _G.geterrorhandler()
 		for  receiver,method  in  next, callbacks  do
 			selfArg = receiver
-			if type(method) == 'function' then
-				callback,closure = method, functionClosure
-			else
-				callback,closure = receiver[method], methodClosure
+			if type(method) ~= 'string'
+			then  callback,closure = method, functionClosure
+			else  callback,closure = receiver[method], methodClosure
 			end
 			local ok = xpcall(closure, errorhandler)
 			if ok then  callbacksRan = callbacksRan + 1  end
