@@ -13,8 +13,8 @@
 
 -- GLOBALS: <none>
 -- Exported to _G:  LibStub, LibStub:NewLibrary()
--- Used from _G:  error,getmetatable,setmetatable
--- Upvalued Lua globals:  type,tonumber,tostring,strmatch
+-- Used from _G:  error,geterrorhandler,tostring,getmetatable,setmetatable
+-- Upvalued Lua globals:  type,tonumber,strmatch
 
 local G, LIBSTUB_NAME, LIBSTUB_REVISION = _G, LIBSTUB_NAME or 'LibStub', 3
 local LibStub = G[LIBSTUB_NAME] or { minor = 0, libs = {}, stubs = {}, minors = {} }  --, dependents = {} }
@@ -31,7 +31,7 @@ if (LibStub.minors[LibStub.NewLibrary] or LibStub.minor or 0) < LIBSTUB_REVISION
 	LibStub.stubs = LibStub.stubs or {}
 
 	-- Upvalued Lua globals:
-	local type,tonumber,tostring,strmatch = type,tonumber,tostring,string.match
+	local type,tonumber,strmatch = type,tonumber,string.match
 
 	local function torevision(version)  return  tonumber(version)  or  type(version)=='string' and tonumber(strmatch(version, "%d+"))  end
 	LibStub.torevision = torevision
@@ -45,20 +45,21 @@ if (LibStub.minors[LibStub.NewLibrary] or LibStub.minor or 0) < LIBSTUB_REVISION
 	-- @return nil  if newer or same revision of the library is already present.
 	-- @return old library object (empty table initially) if upgrade is needed.
 	--
-	function LibStub:NewLibrary(name, revision, lib)
+	function LibStub:NewLibrary(name, revision, libObj)
 		if type(name)~='string' then
 			G.error( "Usage: LibStub:NewLibrary(name, revision):  `name` - string expected, got "..type(name) , 2 )
 		end
 
 		local rev = torevision(revision)
 		if not rev then
-			G.error( "Usage: LibStub:NewLibrary(name, revision):  `revision` - expected a number or a string containing a number, got '"..tostring(revision).."'." , 2 )
+			G.error( "Usage: LibStub:NewLibrary(name, revision):  `revision` - expected a number or a string containing a number, got '"..G.tostring(revision).."'." , 2 )
 		end
 
 		local oldrevision = self.minors[name]
 		if oldrevision and oldrevision >= rev then  return nil  end
 
-		local lib =  self.libs[name]  or  lib  or  self.stubs[name]  or  {}
+		if libObj and libObj ~= lib then  G.geterrorhandler()("LibStub:NewLibrary('"..G.tostring(name).."', "..G.tostring(revision)..", libObj):  `libObj` is different from the already registered lib. Using the registered one.")  end
+		local lib =  self.libs[name]  or  libObj  or  self.stubs[name]  or  {}
 		self.libs[name], self.minors[name] = lib, rev
 
 		-- Support BeforeNewLibrary and AfterNewLibrary event dispatchers.
