@@ -51,7 +51,12 @@ if  select(4, G.GetBuildInfo()) >= 80000  then
 	-- https://us.battle.net/forums/en/wow/topic/20762318007
 	-- • xpcall now accepts arguments like pcall does
 	--
-	LibShared.safecall = LibShared.safecall or  function(unsafeFunc, ...)  return xpcall(unsafeFunc, errorhandler, ...)  end
+	LibShared.safecall = LibShared.safecall or  function(unsafeFunc, ...)
+		if unsafeFunc then
+			-- 2 pages in 1 line (3 dots exactly).
+			return xpcall(unsafeFunc, errorhandler, ...)
+		end
+	end
 
 elseif not LibShared.safecallDispatch then
 
