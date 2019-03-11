@@ -1,5 +1,6 @@
-local AceEvent = LibStub:GetLibrary("AceEvent-3.0")
-
+local G, LIB_NAME, LIB_REVISION  =  _G, "AceEvent-3.0", 3.1
+assert(LibStub and LibStub.NewLibraryPart, 'Include "LibStub.NewLibraryPart.lua" before AceEvent.SendMockEvent.')
+local AceEvent = LibStub:NewLibraryPart(LIB_NAME, LIB_REVISION, 'SendMockEvent')
 if not AceEvent then return end
 
 
@@ -8,9 +9,10 @@ function AceEvent:SendMockEvent(eventName, ...)
 	local frames = { G.GetFramesRegisteredForEvent(eventName) }
 	if  not next(frames)  then  return 0  end
 
-	local wrapper = LibShared.GetSafecallWrapper(eventName, ...)
+	local LibDispatch = G.LibStub('LibDispatch')
+	local wrapper = LibDispatch.CallWrapper(eventName, ...)
 	local callbacksRan = 0
-	local errorhandler = LibShared.errorhandler
+	local errorhandler = G.LibShared.errorhandler
 	-- local errorhandler = G.geterrorhandler()
 
 	for i,frame in  ipairs(frames)  do
@@ -37,6 +39,7 @@ function AceEvent:SendMockEvent(eventName, ...)
 	local argNum = select('#',...)
 	local methodClosure, selfArg, callback
 	if  0 == argNum  then
+		-- There is no `return`:  events ignore return values.
 		methodClosure = function()  callback( selfArg, eventName )  end
 	elseif  1 == argNum  then
 		local arg = ...
