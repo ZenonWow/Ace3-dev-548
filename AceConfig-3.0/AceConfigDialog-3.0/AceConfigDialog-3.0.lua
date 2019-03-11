@@ -32,7 +32,23 @@ local PATH_SEP = '\031'  -- 31 - '▼'▼'▼'  -- US - Unit Separator  -- Can b
 local gui = LibStub("AceGUI-3.0", nil, MAJOR)
 local reg = LibStub("AceConfigRegistry-3.0", nil, MAJOR)
 
--- Export to LibShared:  errorhandler, softassert, safecall/safecallDispatch
+-- Lua APIs
+local tconcat, tinsert, tsort, tremove, tsort = table.concat, table.insert, table.sort, table.remove, table.sort
+local strmatch, format = string.match, string.format
+local assert, loadstring, error = assert, loadstring, error
+local pairs, next, unpack, wipe, ipairs = pairs, next, unpack, wipe, ipairs
+local rawset, tostring, tonumber = rawset, tostring, tonumber
+local math_min, math_max, math_floor = math.min, math.max, math.floor
+local xpcall,type,select = xpcall,type,select
+
+-- Global vars/functions that we don't upvalue since they might get hooked, or upgraded
+-- List them here for Mikk's FindGlobals script
+-- GLOBALS: NORMAL_FONT_COLOR, GameTooltip, StaticPopupDialogs, ACCEPT, CANCEL, StaticPopup_Show
+-- GLOBALS: PlaySound, GameFontHighlight, GameFontHighlightSmall, GameFontHighlightLarge
+-- GLOBALS: CloseSpecialWindows, InterfaceOptions_AddCategory, geterrorhandler
+
+
+-- Export to LibShared:  errorhandler, softassert, safecall/safecallForArgNum
 local LibShared = G.LibShared or {}  ;  G.LibShared = LibShared
 
 --- LibShared. errorhandler(errorMessage):  Report error. Calls _G.geterrorhandler(), without tailcall to generate readable stacktrace.
@@ -42,6 +58,7 @@ local errorhandler = LibShared.errorhandler
 --- LibShared. softassert(condition, message):  Report error, then continue execution, *unlike* assert().
 LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or LibShared.errorhandler(message)  end
 local softassert = LibShared.softassert
+
 
 
 if  select(4, G.GetBuildInfo()) >= 80000  then
@@ -58,81 +75,55 @@ if  select(4, G.GetBuildInfo()) >= 80000  then
 		end
 	end
 
-elseif not LibShared.safecallDispatch then
+elseif not LibShared.safecallForArgNum then
 
-	-- Export  LibShared.safecallDispatch
-	local SafecallDispatchers = {}
-	function SafecallDispatchers:CreateDispatcher(argNum)
-		local sourcecode = [===[
-			local xpcall, errorhandler = ...
-			local unsafeFuncUpvalue, ARGS
-			local function xpcallClosure()  return unsafeFuncUpvalue(ARGS)  end
+	local ClosureCreators = {}
 
-			local function dispatcher(unsafeFunc, ...)
-				 unsafeFuncUpvalue, ARGS = unsafeFunc, ...
-				 return xpcall(xpcallClosure, errorhandler)
-				 -- return xpcall(xpcallClosure, geterrorhandler())
-			end
+	-- This is called `wrapperCreatorForArgNum` in the original. Here the wrapper step is merged with the closure creation.
+	local closureCreatorForArgNum = [===[
+		local callback, ARGS
+		local function functionClosure()  return select( 1, callback(ARGS) )  end
+		local function closureCreator(calledFunc, ...)  callback, ARGS = calledFunc, ...  ;  return functionClosure  end
+		return closureCreator
+	]===]
 
-			return dispatcher
-		]===]
-
+	function ClosureCreators:CompileCreator(argNum)
+		G.assert(0 < argNum)    -- argNum == 0 generates invalid lua:  callback,  = calledFunc, ...
 		local ARGS = {}
-		for i = 1, argNum do ARGS[i] = "a"..i end
-		sourcecode = sourcecode:gsub("ARGS", tconcat(ARGS, ","))
-		local creator = assert(loadstring(sourcecode, "SafecallDispatchers[argNum="..argNum.."]"))
-		local dispatcher = creator(xpcall, errorhandler)
-		-- rawset(self, argNum, dispatcher)
-		self[argNum] = dispatcher
-		return dispatcher
+		for i = 1,argNum do  ARGS[i] = "a"..i  end
+		local sourcecode = closureCreatorForArgNum:gsub("ARGS", G.table.concat(ARGS, ","))
+		local creator = G.assert( G.loadstring(sourcecode, "ClosureCreators[argNum="..argNum.."]") )
+		self[argNum] = creator()
+		return creator
 	end
 
-	setmetatable(SafecallDispatchers, { __index = SafecallDispatchers.CreateDispatcher })
 
-	SafecallDispatchers[0] = function (unsafeFunc)
-		-- Pass a delegating errorhandler to avoid G.geterrorhandler() function call before any error actually happens.
-		return xpcall(unsafeFunc, errorhandler)
-		-- Or pass the registered errorhandler directly to avoid inserting an extra callstack frame.
-		-- The errorhandler is expected to be the same at both times: callbacks usually don't change it.
-		--return xpcall(unsafeFunc, G.geterrorhandler())
-	end
+	ClosureCreators[0] = function(unsafeFunc)  return unsafeFunc  end
+	setmetatable(ClosureCreators, { __index = ClosureCreators.CompileCreator })
 
-	function LibShared.safecallDispatch(unsafeFunc, ...)
-		-- we check to see if unsafeFunc is actually a function here and don't error when it isn't
-		-- this safecall is used for optional functions like OnInitialize OnEnable etc. When they are not
-		-- present execution should continue without hinderance
-		if  not unsafeFunc  then  return  end
-		if  type(unsafeFunc)~='function'  then
-			softassert(false, "Usage: safecall(unsafeFunc):  function expected, got "..type(unsafeFunc))
+
+	function LibShared.safecallForArgNum(unsafeFunc, ...)
+		-- unsafeFunc is optional. If provided, it must be a function or a callable table.
+		if not unsafeFunc then  return  end
+		if type(unsafeFunc)~='function' and type(unsafeFunc)~='table' then
+			LibShared.softassert(false, "Usage: safecall(unsafeFunc):  function or callable table expected, got "..type(unsafeFunc))
 			return
 		end
 
-		local dispatcher = SafecallDispatchers[select('#',...)]
+		local closureCreator = ClosureCreators[ select('#',...) ]
+		local closure = closureCreator(unsafeFunc, ...)
 		-- Avoid tailcall with select(1,...).
-		return select( 1, dispatcher(unsafeFunc, ...) )
+		return select( 1, xpcall(closure, errorhandler) )
 	end
 
-end -- LibShared.safecallDispatch
+end -- LibShared.safecallForArgNum
 
 
 
 -- Choose the safecall implementation to use.
-LibShared.safecall = LibShared.safecall or LibShared.safecallDispatch
+LibShared.safecall = LibShared.safecall or LibShared.safecallForArgNum
 local safecall = LibShared.safecall
 
--- Lua APIs
-local tconcat, tinsert, tsort, tremove, tsort = table.concat, table.insert, table.sort, table.remove, table.sort
-local strmatch, format = string.match, string.format
-local assert, loadstring, error = assert, loadstring, error
-local pairs, next, select, type, unpack, wipe, ipairs = pairs, next, select, type, unpack, wipe, ipairs
-local rawset, tostring, tonumber = rawset, tostring, tonumber
-local math_min, math_max, math_floor = math.min, math.max, math.floor
-
--- Global vars/functions that we don't upvalue since they might get hooked, or upgraded
--- List them here for Mikk's FindGlobals script
--- GLOBALS: NORMAL_FONT_COLOR, GameTooltip, StaticPopupDialogs, ACCEPT, CANCEL, StaticPopup_Show
--- GLOBALS: PlaySound, GameFontHighlight, GameFontHighlightSmall, GameFontHighlightLarge
--- GLOBALS: CloseSpecialWindows, InterfaceOptions_AddCategory, geterrorhandler
 
 local emptyTbl = {}
 local width_multiplier = 170
