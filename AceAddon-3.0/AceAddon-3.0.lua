@@ -1011,13 +1011,15 @@ end
 
 
 function AceAddon:DoEnableQueue()
+	-- No recursive enabling in:  PLAYER_LOGIN -> DoEnableQueue() -> EnableAddon() -> :OnEnable() -> LoadAddOn() -> ADDON_LOADED -> DoEnableQueue()
+	if self.enablingAddon then  return  end
 	print("AceAddon:  start enabling addons at ["..date("%H:%M:%S").."] - IsLoggedIn, IsPlayerInWorld:", G.IsLoggedIn(), G.IsPlayerInWorld())
 
-	local timeLog = AceAddon.addonEnableTimeLog
-	local times = AceAddon.addonEnableTimes
+	local timeLog = self.addonEnableTimeLog
+	local times = self.addonEnableTimes
 	local before = debugprofilestop()
 
-	local queue, first = AceAddon.enablequeue, 1
+	local queue, first = self.enablequeue, 1
 	while  first <= #queue  do
 		-- local moduleObj = tremove(queue, 1)
 		-- Remove from queue without moving the rest.
@@ -1025,7 +1027,9 @@ function AceAddon:DoEnableQueue()
 		queue[first] = false
 		first = first + 1
 
-		local didEnable = AceAddon:EnableAddon(moduleObj)
+		self.enablingAddon = moduleObj.name
+		local didEnable = self:EnableAddon(moduleObj)
+		self.enablingAddon = nil
 		local after = debugprofilestop()
 		local spent = after - before
 		before = after
