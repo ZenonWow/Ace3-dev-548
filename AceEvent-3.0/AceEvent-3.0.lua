@@ -9,21 +9,22 @@
 -- make into AceEvent.
 -- @class file
 -- @name AceEvent-3.0
--- @release $Id: AceEvent-3.0.lua 975 2010-10-23 11:26:18Z nevcairiel $
--- @patch $Id: AceEvent-3.0.lua 975.1 2019-01 Mongusius, MINOR: 3 -> 3.1
--- 3.1 added AceEvent:IsEventRegistered(eventName)
-
-local MAJOR, MINOR = "AceEvent-3.0", 3.1
-local AceEvent = LibStub:NewLibrary(MAJOR, MINOR)
-
-if not AceEvent then return end
-
--- Lua APIs
-local pairs = pairs
+-- @release $Id: AceEvent-3.0.lua 1161 2017-08-12 14:30:16Z funkydude $
+-- @patch $Id: AceEvent-3.0.lua 1161.1 2019-01 Mongusius, MINOR: 4 -> 5
+-- Revision 5:  added AceEvent:IsEventRegistered(eventName)
 
 local CallbackHandler = LibStub("CallbackHandler-1.0", nil, MAJOR)
 -- local CallbackHandler = LibStub:Depend(AceEvent, "CallbackHandler-1.0")
 -- local CallbackHandler = AceEvent:Depend("CallbackHandler-1.0")
+
+local MAJOR, MINOR = "AceEvent-3.0", 5
+local AceEvent = LibStub:NewLibrary(MAJOR, MINOR)
+
+if not AceEvent then return end
+
+
+-- Lua APIs
+local pairs = pairs
 
 AceEvent.frame  = AceEvent.frame  or CreateFrame("Frame", "AceEvent30Frame") -- our event frame
 AceEvent.embeds = AceEvent.embeds or {}  -- Clients of AceEvent embedding the mixin methods.
