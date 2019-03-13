@@ -328,7 +328,7 @@ function AceAddon.DetermineAddonFolder(stackFramesUp, moduleObj)
 	if not G.DEVMODE then    -- Only report in DEVMODE.
 	elseif not addonFolder then
 		local AceAddonFunc =  (moduleObj.moduleName and "NewModule" or "NewAddon")
-		G.geterrorhandler()("    AceAddon:"..AceAddonFunc.."(name = '"..moduleObj.name.."'):  can't determine addonFolder from debugstack("..callDepth..", 3, 0):\n"..tostring(callerStack))
+		moduleObj.addonFolderMsg = "    AceAddon:"..AceAddonFunc.."(name = '"..moduleObj.name.."'):  can't determine addonFolder from debugstack("..callDepth..", 3, 0):\n" .. tostring(callerStack)
 	end
 	return addonFolder
 end
@@ -350,6 +350,8 @@ function mixin:SetRealAddonName(realAddonName)
 	-- Historically the parameter of ADDON_LOADED event is saved to baseName. Have seen only one addon using it: Prat-3.0.
 	-- Deprecated, use :GetRealAddonName() instead.
 	self.baseName = realAddonName
+	-- Don't report if callstack did not contain proper addon name.
+	self.addonFolderMsg = nil
 	return self
 end
 
@@ -947,8 +949,10 @@ function AceAddon:DoInitQueue(addonName)
 		if  addonName  and  not moduleObj.realAddonName  then
 			-- moduleObj.addonFolder == moduleObj.baseName == addonName expected
 			if  moduleObj.addonFolder  and  moduleObj.addonFolder ~= addonName  then
-				G.geterrorhandler()( "AceAddon:DoInitQueue('"..addonName.."'):  ADDON_LOADED event fired for possibly different addon. Initializing moduleObj.addonFolder = '"..moduleObj.addonFolder.."'" )
+				local msg = "AceAddon:DoInitQueue('"..addonName.."'):  ADDON_LOADED event fired for possibly different addon. Initializing moduleObj.addonFolder = '"..moduleObj.addonFolder.."'"
+				G.geterrorhandler()(msg)
 			end
+			if moduleObj.addonFolderMsg then  G.geterrorhandler()( moduleObj.addonFolderMsg )  end
 			if  G.DEVMODE  and  not moduleObj.moduleName  and  moduleObj.addonFolder  and  moduleObj.addonFolder ~= moduleObj.name  then
 				print("AceAddon('"..moduleObj.name.."'):  name different from moduleObj.addonFolder = '"..moduleObj.addonFolder.."'. Use:   if addon.SetRealAddonName then  addon:SetRealAddonName(...)  end   (or ADDON_NAME instead of ...) to explicitly set the real addon name.")
 			end
