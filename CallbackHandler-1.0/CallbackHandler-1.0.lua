@@ -179,8 +179,8 @@ end -- DispatchFixedArgs
 
 -- Choose the Dispatch implementation to use.
 Dispatch = Dispatch
-	or CallbackHandler.DispatchFixedArgs
 	or CallbackHandler.DispatchWrapped
+	or CallbackHandler.DispatchFixedArgs
 	or CallbackHandler.DispatchDynamic
 
 
@@ -208,7 +208,7 @@ function CallbackHandler:New(sender, RegisterName, UnregisterName, UnregisterAll
 	-- Create the registry object
 	local registry = { recurse = 0, events = {} }
 	-- registry.events = setmetatable({}, LibShared.QueryTableMeta)
-	for k,v in RegistryMixin do  registry[k] = v  end
+	for k,v in pairs(RegistryMixin) do  registry[k] = v  end
 
 
 	--------------------------------------------------------------------------
@@ -312,7 +312,7 @@ function CallbackHandler:New(sender, RegisterName, UnregisterName, UnregisterAll
 			end
 		end
 
-		LibShared.removeIf(registry.insertQueue, function(newcb)  newcb[1] == eventname and newcb[2] == receiver  end)
+		LibShared.removeIf(registry.insertQueue, function(newcb)  return newcb[1] == eventname and newcb[2] == receiver  end)
 	end
 
 
@@ -337,7 +337,7 @@ function CallbackHandler:New(sender, RegisterName, UnregisterName, UnregisterAll
 			local count = 0
 			for i=1,last do
 				local receiver = select(i,...)
-				count = count + LibShared.removeIf(registry.insertQueue, function(newcb)  newcb[2] == receiver  end)
+				count = count + LibShared.removeIf(registry.insertQueue, function(newcb)  return newcb[2] == receiver  end)
 
 				for eventname, callbacks in pairs(registry.events) do
 					if callbacks[receiver] then
