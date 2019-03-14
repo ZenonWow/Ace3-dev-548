@@ -225,8 +225,8 @@ function AceGUI:Create(type)
 			error(("Widget type %s doesn't supply an OnAcquire Function"):format(type))
 		end
 		-- Set the default Layout ("List")
-		safecall(widget.SetLayout, widget, "List")
-		safecall(widget.ResumeLayout, widget)
+		LibShared.safecall(widget.SetLayout, widget, "List")
+		LibShared.safecall(widget.ResumeLayout, widget)
 		return widget
 	end
 end
@@ -237,9 +237,9 @@ end
 -- If this widget is a Container-Widget, all of its Child-Widgets will be releases as well.
 -- @param widget The widget to release
 function AceGUI:Release(widget)
-	safecall(widget.PauseLayout, widget)
+	LibShared.safecall(widget.PauseLayout, widget)
 	widget:Fire("OnRelease")
-	safecall(widget.ReleaseChildren, widget)
+	LibShared.safecall(widget.ReleaseChildren, widget)
 
 	if widget.OnRelease then
 		widget:OnRelease()
@@ -279,7 +279,7 @@ end
 -- @param widget The widget that should be focused
 function AceGUI:SetFocus(widget)
 	if self.FocusedWidget and self.FocusedWidget ~= widget then
-		safecall(self.FocusedWidget.ClearFocus, self.FocusedWidget)
+		LibShared.safecall(self.FocusedWidget.ClearFocus, self.FocusedWidget)
 	end
 	self.FocusedWidget = widget
 end
@@ -289,7 +289,7 @@ end
 -- e.g. titlebar of a frame being clicked
 function AceGUI:ClearFocus()
 	if self.FocusedWidget then
-		safecall(self.FocusedWidget.ClearFocus, self.FocusedWidget)
+		LibShared.safecall(self.FocusedWidget.ClearFocus, self.FocusedWidget)
 		self.FocusedWidget = nil
 	end
 end
@@ -344,7 +344,7 @@ do
 	
 	WidgetBase.Fire = function(self, name, ...)
 		if self.events[name] then
-			local success, ret = safecall(self.events[name], self, name, ...)
+			local success, ret = LibShared.safecall(self.events[name], self, name, ...)
 			if success then
 				return ret
 			end
@@ -466,7 +466,7 @@ do
 		if self.LayoutPaused then
 			return
 		end
-		safecall(self.LayoutFunc, self.content, self.children)
+		LibShared.safecall(self.LayoutFunc, self.content, self.children)
 	end
 	
 	--call this function to layout, makes sure layed out objects get a frame to get sizes etc
@@ -691,7 +691,7 @@ AceGUI:RegisterLayout("List",
 			
 			height = height + (frame.height or frame:GetHeight() or 0)
 		end
-		safecall(content.obj.LayoutFinished, content.obj, nil, height)
+		LibShared.safecall(content.obj.LayoutFinished, content.obj, nil, height)
 	end)
 
 -- A single control fills the whole content area
@@ -702,7 +702,7 @@ AceGUI:RegisterLayout("Fill",
 			children[1]:SetHeight(content:GetHeight() or 0)
 			children[1].frame:SetAllPoints(content)
 			children[1].frame:Show()
-			safecall(content.obj.LayoutFinished, content.obj, nil, children[1].frame:GetHeight())
+			LibShared.safecall(content.obj.LayoutFinished, content.obj, nil, children[1].frame:GetHeight())
 		end
 	end)
 
@@ -842,5 +842,5 @@ AceGUI:RegisterLayout("Flow",
 		end
 		
 		height = height + rowheight + 3
-		safecall(content.obj.LayoutFinished, content.obj, nil, height)
+		LibShared.safecall(content.obj.LayoutFinished, content.obj, nil, height)
 	end)
