@@ -28,7 +28,7 @@
 -- or:
 -- local AceTimer = LibStub("AceTimer-3.0")
 -- local function scheduledFunc()  print("5 seconds passed")  end
--- local timerId = AceTimer.ScheduleTimer(anything, scheduledFunc)
+-- local timerId = AceTimer.ScheduleTimer(anything, scheduledFunc, delay)
 --
 
 local G, MAJOR, MINOR = _G, "AceTimer-3.0", 16.1 -- Bump minor on changes
