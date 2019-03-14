@@ -1492,7 +1492,7 @@ local function TreeOnButtonEnter(widget, event, uniquevalue, button)
 		group = GetSubOption(group, feedpath[i])
 	end
 
-	if not group.name then  print("Crash:", "uniquevalue:", uniquevalue, PATH_SEP, "feedpath:", strjoin("/", feedpath) )  end
+	if not group or not group.name then  print("AceConfigDialog crash: missing group at feedpath:", strjoin("/", feedpath) )  end
 	local name = GetOptionsMemberValue("name", group, options, feedpath, appName)
 	local desc = GetOptionsMemberValue("desc", group, options, feedpath, appName)
 	
