@@ -59,7 +59,7 @@ local xpcall,type,select = xpcall,type,select
 -- GLOBALS: LibStub, IsLoggedIn, geterrorhandler
 
 
--- Export to LibShared:  AutoTablesMeta, errorhandler, softassert, safecall/safecallForArgNum
+-- Export to LibShared:  AutoTablesMeta, errorhandler, [softerror], safecall/safecallForArgNum
 local LibShared = G.LibShared or {}  ;  G.LibShared = LibShared
 LibShared.istype2 = LibShared.istype2 or  function(value, t1, t2, t3)
 	local t=type(value)  ;  if t==t1 or t==t2 then return value or true end  ;  return nil
@@ -67,14 +67,10 @@ end
 
 -- AutoTablesMeta: metatable that automatically creates empty inner tables when keys are first referenced.
 LibShared.AutoTablesMeta = LibShared.AutoTablesMeta or { __index = function(self, key)  if key ~= nil then  local v={} ; self[key]=v ; return v  end  end }
-
---- LibShared. errorhandler(errorMessage):  Report error. Calls _G.geterrorhandler(), without tailcall to generate readable stacktrace.
-LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  local errorhandler = G.geterrorhandler() ; return errorhandler(errorMessage) or errorMessage  end
-local errorhandler = LibShared.errorhandler
-
---- LibShared. softassert(condition, message):  Report error, then continue execution, *unlike* assert().
-LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or LibShared.errorhandler(message)  end
-local softassert = LibShared.softassert
+--- LibShared.errorhandler(errorMessage):  == _G.geterrorhandler()( errorMessage )
+LibShared.errorhandler = G.geterrorhandler()
+--- LibShared.softerror(message):  Report error, then continue execution, *unlike* error().
+LibShared.softerror = LibShared.softerror or LibShared.errorhandler
 
 local istype2,AutoTablesMeta = LibShared.istype2, LibShared.AutoTablesMeta
 
@@ -90,7 +86,7 @@ if  select(4, G.GetBuildInfo()) >= 80000  then
 	LibShared.safecall = LibShared.safecall or  function(unsafeFunc, ...)
 		if unsafeFunc then
 			-- 2 pages in 1 line (3 dots exactly).
-			return xpcall(unsafeFunc, errorhandler, ...)
+			return xpcall(unsafeFunc, LibShared.errorhandler, ...)
 		end
 	end
 
@@ -125,14 +121,14 @@ elseif not LibShared.safecallForArgNum then
 		-- unsafeFunc is optional. If provided, it must be a function or a callable table.
 		if not unsafeFunc then  return  end
 		if type(unsafeFunc)~='function' and type(unsafeFunc)~='table' then
-			LibShared.softassert(false, "Usage: safecall(unsafeFunc):  function or callable table expected, got "..type(unsafeFunc))
+			LibShared.softerror("Usage: safecall(unsafeFunc):  function or callable table expected, got "..type(unsafeFunc))
 			return
 		end
 
 		local closureCreator = ClosureCreators[ select('#',...) ]
 		local closure = closureCreator(unsafeFunc, ...)
 		-- Avoid tailcall with select(1,...).
-		return select( 1, xpcall(closure, errorhandler) )
+		return select( 1, xpcall(closure, LibShared.errorhandler) )
 	end
 
 end -- LibShared.safecallForArgNum
@@ -740,8 +736,10 @@ function AceAddon:InitializeAddon(moduleObj)
 	local fullName = moduleObj.name
 	-- If module is uninitialized then  self.statuses[fullName] == nil. This guarantees modules are initialized only once.
 	-- Simpler, therefore more reliable than scanning initializequeue for the module.
-	LibShared.softassert(self.statuses[fullName] == nil, "AceAddon:InitializeAddon('"..fullName.."') called repeatedly.")
-	if  self.statuses[fullName] ~= nil  then  return  end
+	if  self.statuses[fullName] ~= nil  then
+		LibShared.softerror("AceAddon:InitializeAddon('"..fullName.."') called repeatedly.")
+		return
+  end
 
   -- Initialized, but not enabled status. Set before OnInitialize() so calling :Enable() will actually enable the module.
 	self.statuses[fullName] = false

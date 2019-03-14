@@ -47,15 +47,12 @@ local UIParent = UIParent
 --local con = LibStub("AceConsole-3.0",true)
 
 
--- Export to LibShared:  errorhandler, softassert, safecall/safecallForArgNum
+-- Export to LibShared:  errorhandler, [softerror], safecall/safecallForArgNum
 local LibShared = G.LibShared or {}  ;  G.LibShared = LibShared
-
---- LibShared. errorhandler(errorMessage):  Report error. Calls _G.geterrorhandler(), without tailcall to generate readable stacktrace.
-LibShared.errorhandler = LibShared.errorhandler or  function(errorMessage)  local errorhandler = G.geterrorhandler() ; return errorhandler(errorMessage) or errorMessage  end
-local errorhandler = LibShared.errorhandler
-
---- LibShared. softassert(condition, message):  Report error, then continue execution, *unlike* assert().
-LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or LibShared.errorhandler(message)  end
+--- LibShared.errorhandler(errorMessage):  == _G.geterrorhandler()( errorMessage )
+LibShared.errorhandler = G.geterrorhandler()
+--- LibShared.softerror(message):  Report error, then continue execution, *unlike* error().
+LibShared.softerror = LibShared.softerror or LibShared.errorhandler
 
 
 
@@ -69,7 +66,7 @@ if  select(4, G.GetBuildInfo()) >= 80000  then
 	LibShared.safecall = LibShared.safecall or  function(unsafeFunc, ...)
 		if unsafeFunc then
 			-- 2 pages in 1 line (3 dots exactly).
-			return xpcall(unsafeFunc, errorhandler, ...)
+			return xpcall(unsafeFunc, LibShared.errorhandler, ...)
 		end
 	end
 
@@ -104,14 +101,14 @@ elseif not LibShared.safecallForArgNum then
 		-- unsafeFunc is optional. If provided, it must be a function or a callable table.
 		if not unsafeFunc then  return  end
 		if type(unsafeFunc)~='function' and type(unsafeFunc)~='table' then
-			LibShared.softassert(false, "Usage: safecall(unsafeFunc):  function or callable table expected, got "..type(unsafeFunc))
+			LibShared.softerror("Usage: safecall(unsafeFunc):  function or callable table expected, got "..type(unsafeFunc))
 			return
 		end
 
 		local closureCreator = ClosureCreators[ select('#',...) ]
 		local closure = closureCreator(unsafeFunc, ...)
 		-- Avoid tailcall with select(1,...).
-		return select( 1, xpcall(closure, errorhandler) )
+		return select( 1, xpcall(closure, LibShared.errorhandler) )
 	end
 
 end -- LibShared.safecallForArgNum

@@ -31,7 +31,7 @@
 -- local timerId = AceTimer.ScheduleTimer(anything, scheduledFunc)
 --
 
-local MAJOR, MINOR = "AceTimer-3.0", 16.1 -- Bump minor on changes
+local G, MAJOR, MINOR = _G, "AceTimer-3.0", 16.1 -- Bump minor on changes
 local AceTimer, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 
 if not AceTimer then return end -- No upgrade needed
@@ -313,16 +313,16 @@ end
 -- Embed handling
 
 
-local LibShared = _G.LibShared or {}  ;  _G.LibShared = LibShared
---- LibShared. softassert(condition, message):  Report error, then continue execution, *unlike* assert().
-LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or _G.geterrorhandler()(message)  end
+local LibShared = G.LibShared or {}  ;  G.LibShared = LibShared
+--- LibShared.softerror(message):  Report error, then continue execution, *unlike* error().
+LibShared.softerror = LibShared.softerror or G.geterrorhandler()
 
 
 -- Embeds AceTimer into the target object making the functions from the mixin table available on target:..
 -- @param target target object to embed AceTimer in
 function AceTimer:Embed(target)
 	-- TODO: Remove if no such anomaly found.
-	if self ~= AceTimer then  LibShared.softassert(false, "AceTimer:Embed("..tostring(target).."): self= "..tostring(self).." ~= AceTimer" )  end
+	if self ~= AceTimer then  LibShared.softerror("AceTimer:Embed("..tostring(target).."): self= "..tostring(self).." ~= AceTimer" )  end
 	self = AceTimer
 
 	self.embeds[target] = true

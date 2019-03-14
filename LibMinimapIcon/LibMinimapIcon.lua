@@ -52,7 +52,7 @@ lib.notCreated = lib.notCreated or {}
 local LibShared = G.LibShared or {}  ;  G.LibShared = LibShared
 --- LibShared. softassert(condition, message):  Report error, then continue execution, *unlike* assert().
 LibShared.softassert = LibShared.softassert  or  function(ok, message)  return ok, ok or G.geterrorhandler()(message)  end
-local safecall = assert(LibShared.safecall, "LibMinimapIcon(LibDBIcon) requires LibShared.safecall")
+local safecall = assert(LibShared.safecall, "LibMinimapIcon(LibDBIcon-1.0) requires LibShared.safecall")
 
 
 function lib:IconCallback(event, name, key, value, dataobj)
